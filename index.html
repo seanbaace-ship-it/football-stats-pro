@@ -1082,7 +1082,14 @@ tr.fixture-expanded-row:hover td{background:transparent!important}
       </div>
 
       <div class="guide-card">
-        <div class="guide-title">Opción B — Exportar JSON con Python</div>
+        <div class="guide-title">Opción B — Actualizar automáticamente desde football-data.co.uk</div>
+        <div class="guide-sub">Descarga y consolida las 17 ligas europeas configuradas directamente desde su fuente oficial — sin subir ningún archivo a mano. Temporada configurada: <code>2025/26</code> (editable en el código, constante <code>FDCO_SEASON</code>).</div>
+        <button class="btn-ai" id="fdcoBtn" onclick="loadFromFootballData()" style="margin-top:10px">🌐 Actualizar desde football-data.co.uk</button>
+        <div id="fdcoStatus" style="margin-top:10px;font-size:12px;line-height:1.9"></div>
+      </div>
+
+      <div class="guide-card">
+        <div class="guide-title">Opción C — Exportar JSON con Python</div>
         <div class="guide-sub">Si prefieres más control, instala Python y ejecuta este script para generar un <code>matches.json</code> que puedes cargar con el botón "🔄 Cargar JSON".</div>
         <div class="step-list">
           <div class="step-item"><div class="step-num">1</div><div class="step-body">Instala Python desde <strong>python.org</strong> y ejecuta en terminal: <code>pip install pandas openpyxl</code></div></div>
@@ -1992,13 +1999,7 @@ function loadExcel(input) {
       const ws = wb.Sheets[sheetName];
       const raw = XLSX.utils.sheet_to_json(ws, { defval:'', raw:false });
 
-      const lgMap = {
-        'E0':'Premier League','E1':'Championship','E2':'League One','E3':'League Two',
-        'SP1':'La Liga','D1':'Bundesliga','D2':'2. Bundesliga','I1':'Serie A',
-        'F1':'Ligue 1','F2':'Ligue 2','N1':'Eredivisie','B1':'Pro League Bélgica',
-        'SC0':'Scottish Premiership','P1':'Primeira Liga','T1':'Süper Lig',
-        'G1':'Super League Grecia','EC':'National League'
-      };
+      const lgMap = LEAGUE_MAP;
 
       const fmtDate = v => {
         if (!v && v !== 0) return '';
@@ -2097,6 +2098,99 @@ function loadJson(input) {
   };
   reader.readAsText(file);
   input.value = '';
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ACTUALIZACIÓN AUTOMÁTICA DESDE FOOTBALL-DATA.CO.UK
+// ═══════════════════════════════════════════════════════════════
+// Temporada consultada — súbela cuando avance la temporada europea (p.ej. '2627').
+const FDCO_SEASON = '2526';
+
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.trim().length);
+  if (!lines.length) return [];
+  const headers = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const cells = line.split(',');
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (cells[i] || '').trim());
+    return obj;
+  });
+}
+
+function fdcoFmtDate(s) {
+  const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) return String(s || '');
+  let [, d, mo, y] = m;
+  if (y.length === 2) y = (parseInt(y, 10) < 50 ? '20' : '19') + y;
+  return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
+async function loadFromFootballData() {
+  const btn    = document.getElementById('fdcoBtn');
+  const status = document.getElementById('fdcoStatus');
+  const numCols = ['FTHG','FTAG','HTHG','HTAG','HS','AS','HST','AST','HF','AF','HC','AC','HY','AY','HR','AR'];
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Descargando ligas...'; }
+  if (status) status.innerHTML = '';
+
+  const codes = Object.keys(LEAGUE_MAP);
+  const results = [];
+  let allMatches = [];
+
+  for (const code of codes) {
+    const url = `https://www.football-data.co.uk/mmz4281/${FDCO_SEASON}/${code}.csv`;
+    if (status) status.innerHTML += `<div style="color:var(--muted)" id="fdco-row-${code}">… ${LEAGUE_MAP[code]} (${code})</div>`;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const text = await res.text();
+      const rows = parseCSV(text);
+      const mapped = rows
+        .filter(r => r.HomeTeam && r.AwayTeam && ['H','D','A'].includes((r.FTR || '').toUpperCase()))
+        .map(r => ({
+          Date: fdcoFmtDate(r.Date),
+          LeagueName: LEAGUE_MAP[code],
+          HomeTeam: r.HomeTeam.trim(),
+          AwayTeam: r.AwayTeam.trim(),
+          FTR: (r.FTR || '').toUpperCase(),
+          HTR: (r.HTR || '').toUpperCase(),
+          ...Object.fromEntries(numCols.map(k => [k, parseInt(r[k], 10) || 0]))
+        }));
+      allMatches = allMatches.concat(mapped);
+      results.push({ code, name: LEAGUE_MAP[code], ok: true, n: mapped.length });
+    } catch (e) {
+      results.push({ code, name: LEAGUE_MAP[code], ok: false, error: e.message });
+    }
+    const row = document.getElementById(`fdco-row-${code}`);
+    const r = results[results.length - 1];
+    if (row) {
+      row.style.color = r.ok ? 'var(--accent)' : 'var(--red)';
+      row.textContent = r.ok
+        ? `✓ ${r.name} (${r.code}) — ${r.n} partidos`
+        : `✗ ${r.name} (${r.code}) — ${r.error}`;
+    }
+  }
+
+  const okCount = results.filter(r => r.ok).length;
+
+  if (allMatches.length) {
+    MATCHES.length = 0;
+    allMatches.forEach(m => MATCHES.push(m));
+    try {
+      localStorage.setItem('fsp_matches_data', JSON.stringify(allMatches));
+      localStorage.setItem('fsp_matches_file', `football-data.co.uk (temporada ${FDCO_SEASON})`);
+      localStorage.setItem('fsp_matches_ts', new Date().toISOString());
+    } catch (e) { console.warn('localStorage lleno:', e.message); }
+    const dstEl = document.getElementById('dataStatusText');
+    if (dstEl) dstEl.textContent = `football-data.co.uk · ${allMatches.length} partidos`;
+    showToast(`✅ ${allMatches.length} partidos consolidados de ${okCount}/${codes.length} ligas`);
+    init();
+  } else {
+    showToast('❌ No se pudo descargar ninguna liga — revisa el panel de arriba');
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🌐 Actualizar desde football-data.co.uk'; }
 }
 
 // ═══════════════════════════════════════════════════════════════
