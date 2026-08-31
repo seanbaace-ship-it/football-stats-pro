@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Football Stats Pro</string>
+    <string name="title_activity_main">Football Stats Pro</string>
+    <string name="package_name">com.seanbaace.footballstats</string>
+    <string name="custom_url_scheme">com.seanbaace.footballstats</string>
+</resources>

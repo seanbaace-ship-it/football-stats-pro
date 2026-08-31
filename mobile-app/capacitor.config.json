@@ -1,0 +1,22 @@
+{
+  "appId": "com.seanbaace.footballstats",
+  "appName": "Football Stats Pro",
+  "webDir": "www",
+  "backgroundColor": "#0a1410",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#0a1410",
+      "androidSplashResourceName": "splash",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false,
+      "splashFullScreen": true,
+      "splashImmersive": true
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0a1410",
+      "overlaysWebView": false
+    }
+  }
+}
