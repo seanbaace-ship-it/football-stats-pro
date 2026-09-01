@@ -1,0 +1,31 @@
+name: Update football-data.co.uk mirror
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # todos los dias a las 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Fetch and consolidate league data
+        run: node scripts/fetch-football-data.js
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet && echo "Sin cambios en los datos." || (git commit -m "Actualizar datos de football-data.co.uk [automatico]" && git push)

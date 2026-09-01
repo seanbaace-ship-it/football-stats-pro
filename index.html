@@ -1107,7 +1107,7 @@ tr.fixture-expanded-row:hover td{background:transparent!important}
 
       <div class="guide-card">
         <div class="guide-title">Opción B — Actualizar automáticamente desde football-data.co.uk</div>
-        <div class="guide-sub">Descarga y consolida las 17 ligas europeas configuradas directamente desde su fuente oficial — sin subir ningún archivo a mano. Consulta las temporadas <code>2026/27</code> y <code>2025/26</code> (editable en el código, constante <code>FDCO_SEASONS</code>).</div>
+        <div class="guide-sub">Descarga las 17 ligas europeas (temporadas 2026/27 y 2025/26) ya consolidadas — un proceso automático las actualiza a diario desde football-data.co.uk, así que esto funciona igual sin importar la red del celular.</div>
         <button class="btn-ai" id="fdcoBtn" onclick="loadFromFootballData()" style="margin-top:10px">🌐 Actualizar desde football-data.co.uk</button>
         <div id="fdcoStatus" style="margin-top:10px;font-size:12px;line-height:1.9"></div>
       </div>
@@ -2127,138 +2127,61 @@ function loadJson(input) {
 // ═══════════════════════════════════════════════════════════════
 //  ACTUALIZACIÓN AUTOMÁTICA DESDE FOOTBALL-DATA.CO.UK
 // ═══════════════════════════════════════════════════════════════
-// Temporadas consultadas, más reciente primero. Se agregan todas las que respondan
-// (una temporada que aún no arrancó simplemente da 404 y se salta sola) — así
-// nunca queda "vencido" el dato aunque pase el tiempo sin tocar este archivo.
-const FDCO_SEASONS = ['2627', '2526'];
-
-// football-data.co.uk no manda cabeceras CORS, así que un fetch directo desde un
-// dominio distinto (como github.io) puede fallar en el navegador aunque el
-// archivo exista. Si el fetch directo falla, se reintenta una vez a través de
-// un proxy público de solo-lectura (confirmado que sí manda cabeceras CORS,
-// aunque como todo servicio gratuito puede estar lento o caído en un momento
-// dado). No hay garantía de que siga funcionando para siempre — si deja de
-// servir, hay que cambiarlo aquí por otro.
-const FDCO_CORS_PROXY = 'https://api.allorigins.win/get?url=';
-
-// Devuelve { notFound:true } si la temporada no existe (404 real, no error de red),
-// o el texto del CSV. Lanza un error solo si tanto el intento directo como el
-// proxy fallan.
-async function fetchCsvWithFallback(url) {
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (res.status === 404) return { notFound: true };
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return { text: await res.text() };
-  } catch (directErr) {
-    try {
-      const res = await fetch(FDCO_CORS_PROXY + encodeURIComponent(url), { signal: AbortSignal.timeout(12000) });
-      if (!res.ok) throw directErr;
-      const wrapped = await res.json();
-      if (wrapped.status?.http_code === 404) return { notFound: true };
-      if (!wrapped.contents) throw directErr;
-      return { text: wrapped.contents };
-    } catch (proxyErr) {
-      throw directErr; // el mensaje del intento directo suele ser más claro (p.ej. CORS) que un timeout del proxy
-    }
-  }
-}
-
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim().length);
-  if (!lines.length) return [];
-  const headers = lines[0].split(',').map(h => h.trim());
-  return lines.slice(1).map(line => {
-    const cells = line.split(',');
-    const obj = {};
-    headers.forEach((h, i) => obj[h] = (cells[i] || '').trim());
-    return obj;
-  });
-}
-
-function fdcoFmtDate(s) {
-  const m = String(s || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-  if (!m) return String(s || '');
-  let [, d, mo, y] = m;
-  if (y.length === 2) y = (parseInt(y, 10) < 50 ? '20' : '19') + y;
-  return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
-}
+// El navegador (o la app instalada) ya NO le pide los CSV a football-data.co.uk
+// directamente — ese sitio no manda cabeceras CORS y bloquearlo depende de cada
+// red/navegador, por eso a veces "funcionaba" y a veces no.
+//
+// En su lugar, un workflow de GitHub Actions (.github/workflows/update-data.yml)
+// descarga y consolida las ligas del lado del servidor (ahí no aplica CORS) y
+// deja el resultado en data/matches.json, publicado en el mismo GitHub Pages de
+// la app. Ese archivo SÍ se puede pedir desde cualquier red porque GitHub Pages
+// manda Access-Control-Allow-Origin: * en todo lo que sirve. Se usa la URL
+// absoluta (no relativa) para que funcione igual desde la web y desde dentro
+// del APK instalado.
+const FDCO_DATA_URL = 'https://seanbaace-ship-it.github.io/football-stats-pro/data/matches.json';
+const FDCO_META_URL = 'https://seanbaace-ship-it.github.io/football-stats-pro/data/meta.json';
 
 async function loadFromFootballData() {
   const btn    = document.getElementById('fdcoBtn');
   const status = document.getElementById('fdcoStatus');
-  const numCols = ['FTHG','FTAG','HTHG','HTAG','HS','AS','HST','AST','HF','AF','HC','AC','HY','AY','HR','AR'];
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Descargando ligas...'; }
-  if (status) status.innerHTML = '';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Descargando...'; }
+  if (status) status.innerHTML = '<div style="color:var(--muted)">… Consultando el espejo de datos</div>';
 
-  const codes = Object.keys(LEAGUE_MAP);
-  const results = [];
-  let allMatches = [];
+  try {
+    const [matchesRes, metaRes] = await Promise.all([
+      fetch(FDCO_DATA_URL, { signal: AbortSignal.timeout(15000) }),
+      fetch(FDCO_META_URL, { signal: AbortSignal.timeout(15000) }).catch(() => null)
+    ]);
+    if (!matchesRes.ok) throw new Error(`HTTP ${matchesRes.status}`);
+    const allMatches = await matchesRes.json();
+    if (!Array.isArray(allMatches) || !allMatches.length) throw new Error('El archivo de datos llegó vacío');
 
-  for (const code of codes) {
-    if (status) status.innerHTML += `<div style="color:var(--muted)" id="fdco-row-${code}">… ${LEAGUE_MAP[code]} (${code})</div>`;
-    let leagueMatches = [];
-    let seasonsFound = 0;
-    let lastError = null;
-
-    for (const season of FDCO_SEASONS) {
-      const url = `https://www.football-data.co.uk/mmz4281/${season}/${code}.csv`;
-      try {
-        const result = await fetchCsvWithFallback(url);
-        if (result.notFound) continue; // esa temporada no existe para esta liga (aún no arrancó, o división menor sin datos)
-        const rows = parseCSV(result.text);
-        const mapped = rows
-          .filter(r => r.HomeTeam && r.AwayTeam && ['H','D','A'].includes((r.FTR || '').toUpperCase()))
-          .map(r => ({
-            Date: fdcoFmtDate(r.Date),
-            LeagueName: LEAGUE_MAP[code],
-            HomeTeam: r.HomeTeam.trim(),
-            AwayTeam: r.AwayTeam.trim(),
-            FTR: (r.FTR || '').toUpperCase(),
-            HTR: (r.HTR || '').toUpperCase(),
-            ...Object.fromEntries(numCols.map(k => [k, parseInt(r[k], 10) || 0]))
-          }));
-        leagueMatches = leagueMatches.concat(mapped);
-        seasonsFound++;
-      } catch (e) {
-        lastError = e;
-      }
+    const meta = metaRes && metaRes.ok ? await metaRes.json() : null;
+    if (status) {
+      status.innerHTML = meta
+        ? `<div style="color:var(--muted);margin-bottom:6px">Actualizado por última vez: ${new Date(meta.generatedAt).toLocaleString('es-CO')}</div>` +
+          meta.leagues.map(l => l.matches
+            ? `<div style="color:var(--accent)">✓ ${l.name} (${l.code}) — ${l.matches} partidos</div>`
+            : `<div style="color:var(--red)">✗ ${l.name} (${l.code}) — ${l.error || 'sin datos'}</div>`
+          ).join('')
+        : `<div style="color:var(--accent)">✓ ${allMatches.length} partidos recibidos</div>`;
     }
 
-    allMatches = allMatches.concat(leagueMatches);
-    if (leagueMatches.length || seasonsFound) {
-      results.push({ code, name: LEAGUE_MAP[code], ok: true, n: leagueMatches.length });
-    } else {
-      results.push({ code, name: LEAGUE_MAP[code], ok: false, error: lastError ? lastError.message : 'Sin datos en ninguna temporada' });
-    }
-
-    const row = document.getElementById(`fdco-row-${code}`);
-    const r = results[results.length - 1];
-    if (row) {
-      row.style.color = r.ok ? 'var(--accent)' : 'var(--red)';
-      row.textContent = r.ok
-        ? `✓ ${r.name} (${r.code}) — ${r.n} partidos`
-        : `✗ ${r.name} (${r.code}) — ${r.error}`;
-    }
-  }
-
-  const okCount = results.filter(r => r.ok).length;
-
-  if (allMatches.length) {
     MATCHES.length = 0;
     allMatches.forEach(m => MATCHES.push(m));
     try {
       localStorage.setItem('fsp_matches_data', JSON.stringify(allMatches));
-      localStorage.setItem('fsp_matches_file', `football-data.co.uk (${FDCO_SEASONS.join(' + ')})`);
+      localStorage.setItem('fsp_matches_file', 'football-data.co.uk (espejo automático)');
       localStorage.setItem('fsp_matches_ts', new Date().toISOString());
     } catch (e) { console.warn('localStorage lleno:', e.message); }
     const dstEl = document.getElementById('dataStatusText');
     if (dstEl) dstEl.textContent = `football-data.co.uk · ${allMatches.length} partidos`;
-    showToast(`✅ ${allMatches.length} partidos consolidados de ${okCount}/${codes.length} ligas`);
+    showToast(`✅ ${allMatches.length} partidos consolidados`);
     init();
-  } else {
-    showToast('❌ No se pudo descargar ninguna liga — revisa el panel de arriba');
+  } catch (e) {
+    if (status) status.innerHTML = `<div style="color:var(--red)">✗ No se pudo actualizar: ${e.message}</div>`;
+    showToast('❌ No se pudo actualizar — revisa el panel de arriba');
   }
 
   if (btn) { btn.disabled = false; btn.textContent = '🌐 Actualizar desde football-data.co.uk'; }
