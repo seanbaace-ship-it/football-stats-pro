@@ -29,6 +29,17 @@ function get(row, ...keys) {
   return '';
 }
 
+// Como en normalizeFixture(), pero sin convertir a String() -- necesitamos el
+// Date crudo para distinguir una celda de "hora" (que XLSX con cellDates:true
+// entrega como Date anclado al 1899-12-30) de una celda de texto normal.
+function getRaw(row, ...keys) {
+  for (const k of keys) {
+    const found = Object.keys(row).find(r => r.toLowerCase().replace(/\s/g, '') === k.toLowerCase().replace(/\s/g, ''));
+    if (found && row[found] !== undefined && row[found] !== null && row[found] !== '') return row[found];
+  }
+  return null;
+}
+
 function normalizeFixture(row) {
   let date = get(row, 'date', 'fecha');
   if (date) {
@@ -39,9 +50,17 @@ function normalizeFixture(row) {
   if (LEAGUE_MAP[league]) league = LEAGUE_MAP[league];
   const home = get(row, 'hometeam', 'home', 'local', 'equipolocal');
   const away = get(row, 'awayteam', 'away', 'visitante', 'equipovisitante');
-  const time = get(row, 'time', 'hora');
+
+  const timeRaw = getRaw(row, 'time', 'hora');
+  let time = '';
+  if (timeRaw instanceof Date) {
+    time = `${String(timeRaw.getUTCHours()).padStart(2, '0')}:${String(timeRaw.getUTCMinutes()).padStart(2, '0')}`;
+  } else if (timeRaw) {
+    time = String(timeRaw).trim();
+  }
+
   if (!home || !away) return null;
-  return { date: date || 'Sin fecha', league: league || 'Sin liga', home, away, time: time || '' };
+  return { date: date || 'Sin fecha', league: league || 'Sin liga', home, away, time };
 }
 
 async function main() {
