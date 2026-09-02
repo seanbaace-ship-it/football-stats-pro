@@ -26,6 +26,30 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Ensure stable debug keystore exists
+        id: keystore
+        working-directory: mobile-app/android/app
+        run: |
+          if [ ! -f debug.keystore ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Football Stats Pro, OU=Dev, O=Dev, L=Unknown, ST=Unknown, C=US"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit new keystore (solo la primera vez que se genera)
+        if: steps.keystore.outputs.created == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add mobile-app/android/app/debug.keystore
+          git commit -m "Agregar keystore de debug estable para firmar el APK siempre igual [automatico]"
+          git push
+
       - name: Install mobile-app dependencies
         working-directory: mobile-app
         run: npm ci
