@@ -1,0 +1,13 @@
+{
+  "name": "football-stats-pro-data",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Scripts de mantenimiento de datos (no es la app en si, que sigue siendo el HTML unico)",
+  "scripts": {
+    "fetch-data": "node scripts/fetch-football-data.js",
+    "fetch-fixtures": "node scripts/fetch-fixtures.js"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}

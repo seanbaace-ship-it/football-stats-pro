@@ -20,8 +20,14 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install dependencies
+        run: npm install
+
       - name: Fetch and consolidate league data
         run: node scripts/fetch-football-data.js
+
+      - name: Fetch upcoming fixtures
+        run: node scripts/fetch-fixtures.js
 
       - name: Commit and push if data changed
         run: |

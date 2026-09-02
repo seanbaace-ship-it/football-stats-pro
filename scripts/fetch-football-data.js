@@ -44,6 +44,11 @@ function fmtDate(s) {
   return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
+// '2627' -> '2026/27' — se guarda en cada partido para poder filtrar por temporada en la app.
+function seasonLabel(code) {
+  return `20${code.slice(0, 2)}/${code.slice(2, 4)}`;
+}
+
 async function fetchLeagueSeason(code, season) {
   const url = `https://www.football-data.co.uk/mmz4281/${season}/${code}.csv`;
   const res = await fetch(url);
@@ -55,6 +60,7 @@ async function fetchLeagueSeason(code, season) {
     .filter(r => r.HomeTeam && r.AwayTeam && ['H','D','A'].includes((r.FTR || '').toUpperCase()))
     .map(r => ({
       Date: fmtDate(r.Date),
+      Season: seasonLabel(season),
       LeagueName: LEAGUE_MAP[code],
       HomeTeam: r.HomeTeam.trim(),
       AwayTeam: r.AwayTeam.trim(),
