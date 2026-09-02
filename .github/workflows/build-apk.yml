@@ -90,3 +90,15 @@ jobs:
           prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar el APK tambien en GitHub Pages (mismo dominio que la app web)
+        # El link de "Releases" redirige a release-assets.githubusercontent.com con una
+        # URL larga y firmada -- algunas redes/navegadores en celular se traban ahi
+        # aunque github.com cargue bien. Sirviendo el APK desde el mismo dominio de
+        # GitHub Pages que ya carga la app se evita esa redireccion por completo.
+        run: |
+          cp "${{ steps.apk.outputs.path }}" app-debug.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add app-debug.apk
+          git diff --staged --quiet && echo "APK sin cambios." || (git commit -m "Actualizar APK publicado en GitHub Pages [automatico]" && git pull --rebase && git push)
