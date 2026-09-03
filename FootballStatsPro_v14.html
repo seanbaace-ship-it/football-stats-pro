@@ -2416,22 +2416,20 @@ function renderFixtureCardV8(fixture, idx) {
 // [CHANGE 3] renderFixturePageV9 — con filtro de fechas (próximos 10 días)
 
 // ═══════════════════════════════════════════════════════════════
-//  BADGE MODULE — Escudos automáticos (TheSportsDB + ESPN fallback)
+//  BADGE MODULE — Escudos automáticos
 // ═══════════════════════════════════════════════════════════════
+// Antes esto llamaba a TheSportsDB/ESPN en vivo desde el navegador: ESPN
+// bloqueaba por CORS y TheSportsDB dejó de devolver la imagen del escudo en
+// su API gratuita. Ahora se usa un mapa ya armado del lado del servidor
+// (data/badges.json, generado por scripts/fetch-badges.js) — un solo fetch,
+// sin CORS, con coincidencia de nombre exacta en vez de la búsqueda difusa
+// que a veces traía el escudo de otro equipo (p.ej. "Real Madrid" → Betis).
 
-const BADGE_CACHE   = JSON.parse(localStorage.getItem('fsp_badges') || '{}');
-const BADGE_PENDING = new Set();
-
-const ESPN_LEAGUE_SLUG = {
-  'Premier League':'eng.1','Championship':'eng.2','League One':'eng.3','League Two':'eng.4',
-  'La Liga':'esp.1','Bundesliga':'ger.1','2. Bundesliga':'ger.2','Serie A':'ita.1',
-  'Ligue 1':'fra.1','Ligue 2':'fra.2','Eredivisie':'ned.1','Pro League Bélgica':'bel.1',
-  'Scottish Premiership':'sco.1','Primeira Liga':'por.1','Süper Lig':'tur.1',
-  'Super League Grecia':'gre.1','National League':'eng.6'
-};
+let BADGE_MAP = null;
+let BADGE_MAP_LOADING = null;
 
 function normTeamName(name) {
-  return name.trim().replace(/\bFC\b|\bAFC\b|\bCF\b|\bSC\b|\bAC\b|\bAS\b/g,'').replace(/\s+/g,' ').trim();
+  return (name||'').trim().replace(/\bFC\b|\bAFC\b|\bCF\b|\bSC\b|\bAC\b|\bAS\b/g,'').replace(/\s+/g,' ').trim();
 }
 
 function badgePlaceholder(name) {
@@ -2447,70 +2445,20 @@ function badgePlaceholder(name) {
   );
 }
 
-function _saveBadgeCache() {
-  try {
-    const toSave = {};
-    Object.entries(BADGE_CACHE).forEach(([k,v]) => { if (!v.startsWith('data:')) toSave[k] = v; });
-    localStorage.setItem('fsp_badges', JSON.stringify(toSave));
-  } catch(e) {}
+async function loadBadgeMap() {
+  if (BADGE_MAP) return BADGE_MAP;
+  if (BADGE_MAP_LOADING) return BADGE_MAP_LOADING;
+  BADGE_MAP_LOADING = fetch('https://seanbaace-ship-it.github.io/football-stats-pro/data/badges.json', { signal: AbortSignal.timeout(10000) })
+    .then(r => r.ok ? r.json() : {})
+    .catch(() => ({}))
+    .then(map => { BADGE_MAP = map; return map; });
+  return BADGE_MAP_LOADING;
 }
 
 async function fetchTeamBadge(teamName, league) {
-  const key = (teamName||'').toLowerCase();
-  if (BADGE_CACHE[key]) return BADGE_CACHE[key];
-  if (BADGE_PENDING.has(key)) {
-    await new Promise(r => setTimeout(r, 800));
-    if (BADGE_CACHE[key]) return BADGE_CACHE[key];
-  }
-  BADGE_PENDING.add(key);
-  try {
-    const q   = encodeURIComponent(normTeamName(teamName));
-    const res = await fetch('https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=' + q,
-                            { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data  = await res.json();
-      const teams = data.teams || [];
-      const exact = teams.find(t => t.strTeam.toLowerCase() === teamName.toLowerCase());
-      const part  = teams.find(t =>
-        t.strTeam.toLowerCase().includes(normTeamName(teamName).toLowerCase()) ||
-        normTeamName(teamName).toLowerCase().includes(t.strTeam.toLowerCase().split(' ')[0])
-      );
-      const match = exact || part || teams[0];
-      if (match?.strTeamBadge) {
-        const url = match.strTeamBadge + '/tiny';
-        BADGE_CACHE[key] = url;
-        _saveBadgeCache();
-        BADGE_PENDING.delete(key);
-        return url;
-      }
-    }
-  } catch(e) {}
-  try {
-    const slug = ESPN_LEAGUE_SLUG[league] || 'eng.1';
-    const res  = await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/' + slug + '/teams?limit=100',
-                             { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      const all  = (data.sports?.[0]?.leagues?.[0]?.teams || []).map(x => x.team);
-      const norm = normTeamName(teamName).toLowerCase();
-      const match = all.find(t =>
-        t.displayName?.toLowerCase() === teamName.toLowerCase() ||
-        t.displayName?.toLowerCase().includes(norm) ||
-        t.shortDisplayName?.toLowerCase() === norm
-      );
-      if (match?.logos?.[0]?.href) {
-        const logoUrl = match.logos[0].href;
-        BADGE_CACHE[key] = logoUrl;
-        _saveBadgeCache();
-        BADGE_PENDING.delete(key);
-        return logoUrl;
-      }
-    }
-  } catch(e) {}
-  const ph = badgePlaceholder(teamName);
-  BADGE_CACHE[key] = ph;
-  BADGE_PENDING.delete(key);
-  return ph;
+  const map = await loadBadgeMap();
+  const key = normTeamName(teamName).toLowerCase();
+  return map[key] || badgePlaceholder(teamName);
 }
 
 async function injectBadges(idx, homeTeam, awayTeam, league) {
@@ -2667,6 +2615,9 @@ function renderFixturePageV9() {
 
     html += `</div>`; // cierre fixture-filter-panel
   }
+
+  // ── MEJORES COMBINADAS (respeta filtros, usa cuotas reales) ─
+  html += renderBestCombos(fixtures);
 
   // ── TOP ESTADÍSTICAS (respeta filtros) ─────────────────────
   html += renderGlobalTop5();
@@ -5012,6 +4963,11 @@ async function runFixtureAI(btnId, panelId, cardIdx) {
 
 PARTIDO: ${fixture.home} (LOCAL) vs ${fixture.away} (VISITANTE) — ${fixture.league||'Sin liga'}
 ${fixture.date?' Fecha: '+fixture.date:''}${fixture.time?' | Hora: '+fixture.time:''}
+${fixture.odds ? `
+=== CUOTAS REALES DEL MERCADO (promedio de varias casas de apuestas) ===
+1X2: Local ${fixture.odds.h?.toFixed(2)||'SD'} | Empate ${fixture.odds.d?.toFixed(2)||'SD'} | Visitante ${fixture.odds.a?.toFixed(2)||'SD'}
+Goles: Over 2.5 ${fixture.odds.over25?.toFixed(2)||'SD'} | Under 2.5 ${fixture.odds.under25?.toFixed(2)||'SD'}
+Usa estas cuotas reales como referencia del mercado al dar tu pick — si tu análisis coincide con lo que el mercado ya espera, dilo; si ves valor distinto a lo que la cuota sugiere, explica por qué.` : ''}
 
 === ${fixture.home.toUpperCase()} COMO LOCAL (${hs?hs.n:0} partidos) ===
 Resultado: V ${fp(hs?.pctWin)} | E ${fp(hs?.pctDraw)} | D ${fp(hs?.pctLoss)} | Forma: ${formH}
@@ -5096,6 +5052,80 @@ Basa los picks SOLO en los datos estadísticos de arriba, sin inventar. Sé dire
 }
 
 // ══════════════════════════════════════════════════════════════
+//  MEJORES COMBINADAS — picks de mayor probabilidad implícita, con
+//  cuota real de mercado (promedio de varias casas, football-data.co.uk)
+// ══════════════════════════════════════════════════════════════
+// La probabilidad implícita (1/cuota) no descuenta el margen de la casa
+// (overround) — es una referencia para comparar partidos entre sí, no una
+// probabilidad "verdadera". Se deja así de claro en el panel.
+function bestPickForFixture(f) {
+  if (!f.odds) return null;
+  const candidates = [
+    { label: '1X2 — Gana ' + f.home, odds: f.odds.h },
+    { label: '1X2 — Empate',          odds: f.odds.d },
+    { label: '1X2 — Gana ' + f.away, odds: f.odds.a },
+    { label: 'Over 2.5 goles',        odds: f.odds.over25 },
+    { label: 'Under 2.5 goles',       odds: f.odds.under25 }
+  ].filter(c => c.odds != null && c.odds > 1);
+  if (!candidates.length) return null;
+  const best = candidates.reduce((a, b) => (1/b.odds > 1/a.odds ? b : a));
+  return { ...best, prob: 1 / best.odds };
+}
+
+function renderBestCombos(fixtures) {
+  const picks = (fixtures || [])
+    .map(f => { const p = bestPickForFixture(f); return p ? { f, pick: p } : null; })
+    .filter(Boolean)
+    .sort((a, b) => b.pick.prob - a.pick.prob);
+
+  if (!picks.length) {
+    return `<div class="chart-box" style="margin-bottom:16px">
+      <div class="chart-box-header"><div class="chart-box-title">🎯 Mejores combinadas</div></div>
+      <div class="no-data-msg" style="padding:12px">Ninguno de los partidos filtrados trae cuotas todavía — actualiza los próximos partidos desde football-data.co.uk.</div>
+    </div>`;
+  }
+
+  const top5 = picks.slice(0, 5);
+  const row = (p, i) => `<div class="fx-stat" style="grid-template-columns:24px 1fr auto;border-top:${i?'1px solid var(--border)':'none'}">
+      <span style="font-family:var(--font-mono);color:var(--muted);font-size:11px">${i+1}</span>
+      <span style="font-size:12px">
+        <b style="color:var(--text)">${p.f.home} vs ${p.f.away}</b>
+        <span style="color:var(--muted)"> · ${p.f.league} · ${p.f.date}</span><br>
+        <span style="color:var(--accent2)">${p.pick.label}</span>
+      </span>
+      <span style="text-align:right">
+        <div style="font-family:var(--font-mono);font-weight:800;font-size:15px;color:var(--accent)">@${p.pick.odds.toFixed(2)}</div>
+        <div style="font-size:10px;color:var(--muted)">${(p.pick.prob*100).toFixed(0)}% implícita</div>
+      </span>
+    </div>`;
+
+  const combo = (n) => {
+    if (top5.length < n) return '';
+    const legs = top5.slice(0, n);
+    const comboOdds = legs.reduce((a, l) => a * l.pick.odds, 1);
+    const comboProb = legs.reduce((a, l) => a * l.pick.prob, 1);
+    return `<div class="td-card" style="margin-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <b style="font-size:12px;color:var(--text)">Combinada de ${n}</b>
+        <span style="font-family:var(--font-mono);font-weight:900;font-size:17px;color:var(--accent)">@${comboOdds.toFixed(2)}</span>
+      </div>
+      ${legs.map(l => `<div style="font-size:11px;color:var(--muted2);padding:2px 0">• ${l.f.home} vs ${l.f.away} — ${l.pick.label} @${l.pick.odds.toFixed(2)}</div>`).join('')}
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">Probabilidad combinada implícita: ${(comboProb*100).toFixed(1)}%</div>
+    </div>`;
+  };
+
+  return `<div class="chart-box" style="margin-bottom:16px">
+    <div class="chart-box-header"><div class="chart-box-title">🎯 Mejores combinadas</div></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
+      Picks con mayor probabilidad implícita (1/cuota) según el promedio del mercado. No descuenta el margen de la casa de apuestas — es una referencia para comparar partidos entre sí, no una garantía.
+    </div>
+    ${top5.map(row).join('')}
+    ${combo(2)}
+    ${combo(3)}
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
 //  MEJORES 5 ESTADÍSTICAS GLOBALES (todos los fixtures)
 // ══════════════════════════════════════════════════════════════
 
@@ -5156,8 +5186,10 @@ function renderGlobalTop5() {
       const posBadge = (st,name) => !st ? '' :
         `<span style="display:inline-flex;align-items:center;background:var(--surface2);border:1px solid ${posClr(st.pos)};color:${posClr(st.pos)};font-family:var(--font-display);font-size:11px;font-weight:900;padding:1px 5px;border-radius:5px;flex-shrink:0;line-height:1.5" title="${name} · #${st.pos}/${st.total} · ${st.pts}pts">#${st.pos}</span>`;
       const ph = n => badgePlaceholder(n);
-      const cachedH = BADGE_CACHE[(x.home||'').toLowerCase()] || ph(x.home);
-      const cachedA = BADGE_CACHE[(x.away||'').toLowerCase()] || ph(x.away);
+      loadBadgeMap(); // dispara la carga si aún no está lista; este render usa lo que haya disponible ahora
+      const bmap = BADGE_MAP || {};
+      const cachedH = bmap[normTeamName(x.home||'').toLowerCase()] || ph(x.home);
+      const cachedA = bmap[normTeamName(x.away||'').toLowerCase()] || ph(x.away);
       const uid = 'top5-' + cat.key.replace(/[^a-z0-9]/gi,'') + '-' + i;
       return `<div class="top5-row" style="background:${medalBg[i]}">
         <span style="font-size:15px;flex-shrink:0;min-width:18px">${medals[i]}</span>

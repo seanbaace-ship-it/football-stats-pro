@@ -40,6 +40,18 @@ function getRaw(row, ...keys) {
   return null;
 }
 
+// Cuota promedio del mercado (Avg*) -- refleja el consenso de varias casas de
+// apuestas, no la de una sola. Si no hay Avg, cae a Bet365 (B365*) como
+// respaldo, que casi siempre esta presente.
+function getOddsNum(row, ...keys) {
+  for (const k of keys) {
+    const found = Object.keys(row).find(r => r.toLowerCase() === k.toLowerCase());
+    const v = found ? row[found] : undefined;
+    if (v !== undefined && v !== null && v !== '' && !isNaN(+v)) return +v;
+  }
+  return null;
+}
+
 function normalizeFixture(row) {
   let date = get(row, 'date', 'fecha');
   if (date) {
@@ -60,7 +72,17 @@ function normalizeFixture(row) {
   }
 
   if (!home || !away) return null;
-  return { date: date || 'Sin fecha', league: league || 'Sin liga', home, away, time };
+
+  const odds = {
+    h: getOddsNum(row, 'AvgH', 'B365H'),
+    d: getOddsNum(row, 'AvgD', 'B365D'),
+    a: getOddsNum(row, 'AvgA', 'B365A'),
+    over25: getOddsNum(row, 'Avg>2.5', 'B365>2.5'),
+    under25: getOddsNum(row, 'Avg<2.5', 'B365<2.5')
+  };
+  const hasOdds = Object.values(odds).some(v => v !== null);
+
+  return { date: date || 'Sin fecha', league: league || 'Sin liga', home, away, time, odds: hasOdds ? odds : null };
 }
 
 async function main() {

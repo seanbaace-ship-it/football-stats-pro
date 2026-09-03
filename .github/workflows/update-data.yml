@@ -29,6 +29,9 @@ jobs:
       - name: Fetch upcoming fixtures
         run: node scripts/fetch-fixtures.js
 
+      - name: Fetch team badges
+        run: node scripts/fetch-badges.js
+
       - name: Commit and push if data changed
         run: |
           git config user.name "github-actions[bot]"
