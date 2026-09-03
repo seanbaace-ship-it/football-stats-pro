@@ -4890,9 +4890,10 @@ function clearApiKey() {
 
 // Modelos a intentar, en orden. 'gemini-flash-latest' es un alias que Google
 // mantiene apuntando siempre al Flash vigente — evita que el código quede
-// obsoleto cuando retiran una versión puntual. Los dos siguientes son de
-// respaldo por si el alias fallara.
-const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-3.7-flash', 'gemini-2.5-flash'];
+// obsoleto cuando retiran una versión puntual. Los siguientes son de respaldo
+// por si el alias fallara. gemini-2.5-flash se retiró (confirmado por Google:
+// "no longer available to new users") — no volver a agregar modelos 2.5.x aquí.
+const GEMINI_MODELS = ['gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.5-flash'];
 
 // El "razonamiento" interno del modelo (pensar antes de responder) es la mayor
 // causa de demora, y no aporta nada visible al usuario. Se apaga o se baja al
@@ -4943,11 +4944,14 @@ async function callGemini(prompt, apiKey, useSearch) {
       if (result.text !== undefined) return result.text;
       lastErr = result.error;
       const overloaded = result.status === 503 || result.status === 429;
+      // Google a veces retira un modelo sin que responda 404 — el mensaje dice
+      // "no longer available" / "no está disponible" en vez de dar ese status.
+      const retired = /no longer available|not available to new users|no est[aá] disponible/i.test(lastErr.message || '');
       if (overloaded && attempt === 1) {
         await new Promise(r => setTimeout(r, 2500)); // saturación temporal — reintentar el mismo modelo una vez
         continue;
       }
-      if (result.status === 404 || overloaded) break; // modelo no existe, o sigue saturado tras reintentar — probar el siguiente
+      if (result.status === 404 || overloaded || retired) break; // este modelo no sirve — probar el siguiente
       throw lastErr; // error de clave, cuota u otro — no tiene caso probar otro modelo
     }
   }
