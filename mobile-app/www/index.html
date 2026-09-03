@@ -2544,6 +2544,11 @@ function renderFixturePageV9() {
     </div>
   </div>`;
 
+  // ── MEJORES COMBINADAS (arriba de todo — antes quedaba enterrada
+  //    debajo del panel de filtros y era muy difícil de encontrar en el
+  //    celular sin hacer scroll) ───────────────────────────────
+  html += renderBestCombos(fixtures);
+
   // ── PANEL DE FILTROS (siempre visible si hay ligas) ─────────
   if (allLeagues.length >= 1) {
     html += `<div class="fixture-filter-panel">
@@ -2616,9 +2621,6 @@ function renderFixturePageV9() {
 
     html += `</div>`; // cierre fixture-filter-panel
   }
-
-  // ── MEJORES COMBINADAS (respeta filtros, usa cuotas reales) ─
-  html += renderBestCombos(fixtures);
 
   // ── TOP ESTADÍSTICAS (respeta filtros) ─────────────────────
   html += renderGlobalTop5();
