@@ -1548,6 +1548,7 @@ let STATE = {
   favorites:    JSON.parse(localStorage.getItem('fsp_favs')      || '[]'),
   quiniela:     JSON.parse(localStorage.getItem('fsp_quiniela')  || '{}'),
   alerts:       JSON.parse(localStorage.getItem('fsp_alerts')    || '[]'),
+  trackedCombos: JSON.parse(localStorage.getItem('fsp_tracked_combos') || '[]'),
   // [CHANGE 2] compareTeams removed
   scorersTab:   'attack',
   dateFrom:     '',
@@ -4992,20 +4993,14 @@ Goles: ~${expGoals} | Corners: ~${expCorners} | Amarillas: ~${expYellow} | Tiros
 ${fixture.home} gana: ${h2hHomeWins} | Empates: ${h2h.filter(m=>m.FTR==='D').length} | ${fixture.away} gana: ${h2h.length-h2hHomeWins-h2h.filter(m=>m.FTR==='D').length}
 Resultados: ${h2hText||'Sin datos'}
 
-INSTRUCCIONES — primero busca el contexto externo, luego analiza los datos, y SOLO
-DESPUÉS saca los picks (son una conclusión del análisis, no una lista aparte):
+INSTRUCCIONES — primero analiza los datos, y SOLO DESPUÉS saca los picks (son una
+conclusión del análisis, no una lista aparte):
 
-**1. INFORMACIÓN DEL PARTIDO**
-Busca en Google (tienes acceso a búsqueda real): en qué estadio juega ${fixture.home}
-de local, y el pronóstico del clima para ese lugar en la fecha del partido${fixture.date?` (${fixture.date}${fixture.time?' a las '+fixture.time:''})`:''}
-(¿lluvia, sol, temperatura?). Si no encuentras algo, dilo brevemente en vez de inventar.
-2-3 líneas.
-
-**2. ANÁLISIS DE CONTEXTO**
+**1. ANÁLISIS DE CONTEXTO**
 4-5 líneas: forma reciente de cada equipo, cómo rinden en su localía (local/visitante),
 patrón de goles a favor/en contra, disciplina (faltas/tarjetas), y qué dice el H2H.
 
-**3. PICKS RECOMENDADOS**
+**2. PICKS RECOMENDADOS**
 Para cada mercado, como conclusión del análisis anterior: Pick | Justificación (1 línea) | Confianza 🟢/🟡/🔴
 
 - **1X2:**
@@ -5015,13 +5010,13 @@ Para cada mercado, como conclusión del análisis anterior: Pick | Justificació
 - **Tarjetas (línea ~${expYellow}):** Over o Under + número sugerido
 - **Tiros a puerta (línea ~${expShotsOn}):** Over o Under + número sugerido
 
-**4. MEJOR OPCIÓN**
+**3. MEJOR OPCIÓN**
 Después de todo el análisis, cuál es la mejor opción para este partido. En negrita, una línea.
 
 Basa los picks SOLO en los datos estadísticos de arriba, sin inventar. Sé directo, sin relleno.`;
 
   try {
-    const text = await callGemini(prompt, apiKey, true);
+    const text = await callGemini(prompt, apiKey); // sin google_search: esa cuota es mucho más chica y saturaba esto
     const fmt  = text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/🟢/g, '<span style="color:var(--green)">🟢</span>')
@@ -5058,18 +5053,36 @@ Basa los picks SOLO en los datos estadísticos de arriba, sin inventar. Sé dire
 // La probabilidad implícita (1/cuota) no descuenta el margen de la casa
 // (overround) — es una referencia para comparar partidos entre sí, no una
 // probabilidad "verdadera". Se deja así de claro en el panel.
-function bestPickForFixture(f) {
-  if (!f.odds) return null;
-  const candidates = [
+// Mercados con cuota real (football-data.co.uk trae 1X2 y Over/Under 2.5).
+function oddsPicksForFixture(f) {
+  if (!f.odds) return [];
+  return [
     { label: '1X2 — Gana ' + f.home, odds: f.odds.h },
     { label: '1X2 — Empate',          odds: f.odds.d },
     { label: '1X2 — Gana ' + f.away, odds: f.odds.a },
     { label: 'Over 2.5 goles',        odds: f.odds.over25 },
     { label: 'Under 2.5 goles',       odds: f.odds.under25 }
-  ].filter(c => c.odds != null && c.odds > 1);
-  if (!candidates.length) return null;
-  const best = candidates.reduce((a, b) => (1/b.odds > 1/a.odds ? b : a));
-  return { ...best, prob: 1 / best.odds };
+  ]
+    .filter(c => c.odds != null && c.odds > 1)
+    .map(c => ({ ...c, prob: 1 / c.odds, hasRealOdds: true }));
+}
+
+// BTTS no tiene cuota en los datos de football-data.co.uk para próximos
+// partidos, así que se usa el % histórico de ambos equipos como probabilidad
+// (no es una cuota real — se marca aparte y no entra en las combinadas).
+function statPicksForFixture(f) {
+  const hs = calcFullStats(f.home, 'home', f.league);
+  const as = calcFullStats(f.away, 'away', f.league);
+  if (!hs && !as) return [];
+  const bttsProb = ((hs?.pctBtts || 0) + (as?.pctBtts || 0)) / 200;
+  if (!bttsProb) return [];
+  return [{ label: 'BTTS — Ambos marcan (histórico)', prob: bttsProb, hasRealOdds: false }];
+}
+
+function bestPickForFixture(f) {
+  const all = [...oddsPicksForFixture(f), ...statPicksForFixture(f)];
+  if (!all.length) return null;
+  return all.reduce((a, b) => (b.prob > a.prob ? b : a));
 }
 
 function renderBestCombos(fixtures) {
@@ -5081,27 +5094,31 @@ function renderBestCombos(fixtures) {
   if (!picks.length) {
     return `<div class="chart-box" style="margin-bottom:16px">
       <div class="chart-box-header"><div class="chart-box-title">🎯 Mejores combinadas</div></div>
-      <div class="no-data-msg" style="padding:12px">Ninguno de los partidos filtrados trae cuotas todavía — actualiza los próximos partidos desde football-data.co.uk.</div>
+      <div class="no-data-msg" style="padding:12px">Ninguno de los partidos filtrados trae cuotas ni historial suficiente todavía — actualiza los próximos partidos desde football-data.co.uk.</div>
     </div>`;
   }
 
   const top5 = picks.slice(0, 5);
+  // Las combinadas solo pueden armarse con picks de cuota real (BTTS es
+  // estimación estadística, no se puede multiplicar como si fuera una cuota).
+  const comboEligible = picks.filter(p => p.pick.hasRealOdds).slice(0, 5);
+
   const row = (p, i) => `<div class="fx-stat" style="grid-template-columns:24px 1fr auto;border-top:${i?'1px solid var(--border)':'none'}">
       <span style="font-family:var(--font-mono);color:var(--muted);font-size:11px">${i+1}</span>
       <span style="font-size:12px">
         <b style="color:var(--text)">${p.f.home} vs ${p.f.away}</b>
         <span style="color:var(--muted)"> · ${p.f.league} · ${p.f.date}</span><br>
-        <span style="color:var(--accent2)">${p.pick.label}</span>
+        <span style="color:var(--accent2)">${p.pick.label}</span>${p.pick.hasRealOdds ? '' : ' <span style="color:var(--muted);font-size:9px">(estadística, sin cuota real)</span>'}
       </span>
       <span style="text-align:right">
-        <div style="font-family:var(--font-mono);font-weight:800;font-size:15px;color:var(--accent)">@${p.pick.odds.toFixed(2)}</div>
-        <div style="font-size:10px;color:var(--muted)">${(p.pick.prob*100).toFixed(0)}% implícita</div>
+        ${p.pick.hasRealOdds ? `<div style="font-family:var(--font-mono);font-weight:800;font-size:15px;color:var(--accent)">@${p.pick.odds.toFixed(2)}</div>` : ''}
+        <div style="font-size:10px;color:var(--muted)">${(p.pick.prob*100).toFixed(0)}% ${p.pick.hasRealOdds?'implícita':'histórico'}</div>
       </span>
     </div>`;
 
   const combo = (n) => {
-    if (top5.length < n) return '';
-    const legs = top5.slice(0, n);
+    if (comboEligible.length < n) return '';
+    const legs = comboEligible.slice(0, n);
     const comboOdds = legs.reduce((a, l) => a * l.pick.odds, 1);
     const comboProb = legs.reduce((a, l) => a * l.pick.prob, 1);
     return `<div class="td-card" style="margin-top:10px">
@@ -5111,17 +5128,94 @@ function renderBestCombos(fixtures) {
       </div>
       ${legs.map(l => `<div style="font-size:11px;color:var(--muted2);padding:2px 0">• ${l.f.home} vs ${l.f.away} — ${l.pick.label} @${l.pick.odds.toFixed(2)}</div>`).join('')}
       <div style="font-size:10px;color:var(--muted);margin-top:6px">Probabilidad combinada implícita: ${(comboProb*100).toFixed(1)}%</div>
+      <button class="btn-save" style="margin-top:8px;width:100%" onclick='saveCombo(${n}, ${JSON.stringify(legs.map(l => ({home:l.f.home,away:l.f.away,league:l.f.league,date:l.f.date,pick:l.pick.label,odds:l.pick.odds}))).replace(/'/g,"\\u0027")})'>💾 Guardar y hacerle seguimiento</button>
     </div>`;
   };
 
   return `<div class="chart-box" style="margin-bottom:16px">
     <div class="chart-box-header"><div class="chart-box-title">🎯 Mejores combinadas</div></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-      Picks con mayor probabilidad implícita (1/cuota) según el promedio del mercado. No descuenta el margen de la casa de apuestas — es una referencia para comparar partidos entre sí, no una garantía.
+      Mejor pick de cada partido (el de mayor probabilidad entre 1X2, Over/Under 2.5 con cuota real, y BTTS con % histórico). No descuenta el margen de la casa de apuestas — es una referencia para comparar, no una garantía.
     </div>
     ${top5.map(row).join('')}
     ${combo(2)}
     ${combo(3)}
+  </div>${renderComboHistory()}`;
+}
+
+// ── Seguimiento de combinadas guardadas ──────────────────────
+// Guarda cada combinada que el usuario decide seguir, para despues marcar si
+// se ganó o se perdió y con el tiempo poder ver el acierto real (no solo la
+// probabilidad estimada) y en qué se está fallando.
+function saveCombos_persist() {
+  try { localStorage.setItem('fsp_tracked_combos', JSON.stringify(STATE.trackedCombos)); } catch(e) {}
+}
+
+function saveCombo(n, legs) {
+  const comboOdds = legs.reduce((a, l) => a * (l.odds || 1), 1);
+  STATE.trackedCombos.unshift({
+    id: 'combo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    createdAt: new Date().toISOString(),
+    n, legs, comboOdds,
+    status: 'pending',
+    resolvedAt: null
+  });
+  saveCombos_persist();
+  showToast(`✅ Combinada de ${n} guardada — la vas a ver en "Historial de combinadas" para marcar si se cumplió`);
+  renderFixturePageV9();
+}
+
+function resolveCombo(id, status) {
+  const c = STATE.trackedCombos.find(x => x.id === id);
+  if (!c) return;
+  c.status = status;
+  c.resolvedAt = new Date().toISOString();
+  saveCombos_persist();
+  showToast(status === 'won' ? '🟢 Marcada como ganada' : '🔴 Marcada como perdida');
+  renderFixturePageV9();
+}
+
+function deleteTrackedCombo(id) {
+  STATE.trackedCombos = STATE.trackedCombos.filter(x => x.id !== id);
+  saveCombos_persist();
+  renderFixturePageV9();
+}
+
+function renderComboHistory() {
+  const all = STATE.trackedCombos || [];
+  if (!all.length) return '';
+
+  const resolved = all.filter(c => c.status !== 'pending');
+  const won = resolved.filter(c => c.status === 'won').length;
+  const winRate = resolved.length ? (won / resolved.length * 100) : null;
+
+  const pill = (c) => `<div class="td-card" style="margin-bottom:8px;${c.status==='won'?'border-color:var(--accent)':c.status==='lost'?'border-color:var(--accent3)':''}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <b style="font-size:11px;color:var(--muted)">Combinada de ${c.n} · ${new Date(c.createdAt).toLocaleDateString('es-CO')}</b>
+      <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--accent)">@${c.comboOdds.toFixed(2)}</span>
+    </div>
+    ${c.legs.map(l => `<div style="font-size:10.5px;color:var(--muted2)">• ${l.home} vs ${l.away} — ${l.pick}${l.odds?' @'+(+l.odds).toFixed(2):''}</div>`).join('')}
+    <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
+      ${c.status === 'pending' ? `
+        <button class="btn-save" style="flex:1" onclick="resolveCombo('${c.id}','won')">🟢 Se cumplió</button>
+        <button class="auth-btn danger" style="flex:1;margin-top:0;padding:7px" onclick="resolveCombo('${c.id}','lost')">🔴 No se cumplió</button>
+      ` : `
+        <span style="font-size:11px;font-weight:700;color:${c.status==='won'?'var(--accent)':'var(--accent3)'}">${c.status==='won'?'🟢 Se cumplió':'🔴 No se cumplió'} · ${new Date(c.resolvedAt).toLocaleDateString('es-CO')}</span>
+        <button onclick="deleteTrackedCombo('${c.id}')" style="margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;text-decoration:underline">Quitar</button>
+      `}
+    </div>
+  </div>`;
+
+  const pending = all.filter(c => c.status === 'pending');
+  const done    = all.filter(c => c.status !== 'pending');
+
+  return `<div class="chart-box" style="margin-bottom:16px">
+    <div class="chart-box-header">
+      <div class="chart-box-title">📊 Historial de combinadas</div>
+      ${winRate !== null ? `<span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--accent)">${winRate.toFixed(0)}% acierto (${won}/${resolved.length})</span>` : ''}
+    </div>
+    ${pending.length ? `<div style="font-size:11px;color:var(--muted);margin:6px 0">Pendientes por marcar (${pending.length}):</div>${pending.map(pill).join('')}` : ''}
+    ${done.length ? `<div style="font-size:11px;color:var(--muted);margin:10px 0 6px">Resueltas (${done.length}):</div>${done.map(pill).join('')}` : ''}
   </div>`;
 }
 
