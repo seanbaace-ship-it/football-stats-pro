@@ -917,7 +917,7 @@ tr.fixture-expanded-row:hover td{background:transparent!important}
     <div class="sb-item" data-page="trends" onclick="setPage('trends',this)"><span class="icon">&#128202;</span> Tendencias</div>
     <div class="sb-item" data-page="scorers" onclick="setPage('scorers',this)"><span class="icon">&#127885;</span> Rankings</div>
     <div class="sb-item" data-page="predictor" onclick="setPage('predictor',this)"><span class="icon">&#129302;</span> IA Predictor</div>
-    <div class="sb-item" data-page="quiniela" onclick="setPage('quiniela',this)"><span class="icon">&#127919;</span> Quiniela</div>
+    <div class="sb-item" data-page="combos" onclick="setPage('combos',this)"><span class="icon">🗂️</span> Historial de combinadas</div>
     <div class="sb-item" data-page="homeaway" onclick="setPage('homeaway',this)"><span class="icon">&#127967;</span> Localía</div>
     <div class="sb-item" data-page="alerts" onclick="setPage('alerts',this)"><span class="icon">&#128276;</span> Alertas</div>
     <div class="sb-item" data-page="update" onclick="setPage('update',this)"><span class="icon">⚙️</span> Actualizar datos</div>
@@ -1302,23 +1302,15 @@ print(f'Listo: {len(matches)} partidos exportados a matches.json')</div>
     <!-- ═══ CALENDARIO ═══ -->
     <!-- [CHANGE 3] Calendario eliminado -->
 
-    <!-- ═══ QUINIELA ═══ -->
-    <section class="page" id="page-quiniela">
+    <!-- ═══ HISTORIAL DE COMBINADAS ═══ -->
+    <section class="page" id="page-combos">
       <div class="section-header">
         <div>
-          <div class="section-title">Simulador de <span>Quiniela</span></div>
-          <div class="section-sub">Selecciona una jornada, haz tus predicciones y compara con los resultados reales</div>
+          <div class="section-title">Historial de <span>combinadas</span></div>
+          <div class="section-sub">Las combinadas que guardaste desde "Próximos Partidos" — márcalas como cumplidas o no para ver tu acierto real con el tiempo</div>
         </div>
       </div>
-      <div class="filter-row" style="margin-bottom:14px">
-        <span class="filter-label">Liga:</span>
-        <select class="filter-select" id="quinLeague" onchange="quinOnLeagueChange()"></select>
-        <span class="filter-label">Jornada (fecha):</span>
-        <select class="filter-select" id="quinDate" onchange="renderQuiniela()"></select>
-      </div>
-      <div id="quinContent">
-        <div class="matchup-empty"><div class="icon">🎯</div><div style="font-size:15px;font-weight:600;color:var(--muted2)">Selecciona una liga y jornada</div></div>
-      </div>
+      <div id="comboHistoryPage"></div>
     </section>
 
     <!-- ═══ LOCALÍA ═══ -->
@@ -3744,7 +3736,7 @@ function setPage(page, el) {
   if (page === 'scorers')   renderScorers();
   if (page === 'predictor') predInitPage();
   // [CHANGE 3] calendar removed
-  if (page === 'quiniela')  quinInitPage();
+  if (page === 'combos')    renderComboHistoryPage();
   if (page === 'homeaway')  haInitPage();
   if (page === 'alerts')    alertInitPage();
   if (page === 'fixtures')  renderFixturePageV9();
@@ -5087,6 +5079,16 @@ function bestPickForFixture(f) {
   return all.reduce((a, b) => (b.prob > a.prob ? b : a));
 }
 
+// Datos en memoria de las tarjetas de combinada que se muestran en la
+// página actual — evita el bug clásico de meter JSON.stringify() dentro de
+// un atributo onclick (las comillas del JSON rompen el HTML). El onclick
+// solo pasa un índice numérico y aquí se busca el objeto completo.
+let COMBO_CARD_DATA = [];
+
+function comboSig(legs) {
+  return legs.map(l => `${l.home}|${l.away}|${l.pick}`).join('~~');
+}
+
 function renderBestCombos(fixtures) {
   const picks = (fixtures || [])
     .map(f => { const p = bestPickForFixture(f); return p ? { f, pick: p } : null; })
@@ -5103,7 +5105,7 @@ function renderBestCombos(fixtures) {
   const top5 = picks.slice(0, 5);
   // Las combinadas solo pueden armarse con picks de cuota real (BTTS es
   // estimación estadística, no se puede multiplicar como si fuera una cuota).
-  const comboEligible = picks.filter(p => p.pick.hasRealOdds).slice(0, 5);
+  const comboEligible = picks.filter(p => p.pick.hasRealOdds).slice(0, 6);
 
   const row = (p, i) => `<div class="fx-stat" style="grid-template-columns:24px 1fr auto;border-top:${i?'1px solid var(--border)':'none'}">
       <span style="font-family:var(--font-mono);color:var(--muted);font-size:11px">${i+1}</span>
@@ -5118,21 +5120,34 @@ function renderBestCombos(fixtures) {
       </span>
     </div>`;
 
-  const combo = (n) => {
+  // Cada combinada se muestra como una tarjeta clicable ("nota"): al tocarla
+  // se abre el detalle completo en un modal, con los botones de
+  // guardar/eliminar/seguir. No hay botón de guardar suelto dentro de la
+  // tarjeta — hay que abrirla primero, como pidió el usuario.
+  const noteCard = (n) => {
     if (comboEligible.length < n) return '';
-    const legs = comboEligible.slice(0, n);
-    const comboOdds = legs.reduce((a, l) => a * l.pick.odds, 1);
-    const comboProb = legs.reduce((a, l) => a * l.pick.prob, 1);
-    return `<div class="td-card" style="margin-top:10px">
+    const legsRaw = comboEligible.slice(0, n);
+    const legs = legsRaw.map(l => ({ home: l.f.home, away: l.f.away, league: l.f.league, date: l.f.date, pick: l.pick.label, odds: l.pick.odds }));
+    const comboOdds = legs.reduce((a, l) => a * l.odds, 1);
+    const comboProb = legsRaw.reduce((a, l) => a * l.pick.prob, 1);
+    const sig = comboSig(legs);
+    const idx = COMBO_CARD_DATA.length;
+    COMBO_CARD_DATA.push({ n, legs, comboOdds, comboProb, sig });
+    const saved = (STATE.trackedCombos || []).some(c => c.sig === sig && c.status === 'pending');
+    return `<div class="td-card combo-note-card" style="margin-top:10px;cursor:pointer" onclick="openComboDetail(${idx})">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <b style="font-size:12px;color:var(--text)">Combinada de ${n}</b>
+        <b style="font-size:12px;color:var(--text)">Combinada de ${n}${saved ? ' · <span style="color:var(--accent)">✅ Guardada</span>' : ''}</b>
         <span style="font-family:var(--font-mono);font-weight:900;font-size:17px;color:var(--accent)">@${comboOdds.toFixed(2)}</span>
       </div>
-      ${legs.map(l => `<div style="font-size:11px;color:var(--muted2);padding:2px 0">• ${l.f.home} vs ${l.f.away} — ${l.pick.label} @${l.pick.odds.toFixed(2)}</div>`).join('')}
+      ${legs.slice(0, 2).map(l => `<div style="font-size:11px;color:var(--muted2);padding:2px 0">• ${l.home} vs ${l.away} — ${l.pick} @${(+l.odds).toFixed(2)}</div>`).join('')}
+      ${legs.length > 2 ? `<div style="font-size:10px;color:var(--muted)">+ ${legs.length - 2} más...</div>` : ''}
       <div style="font-size:10px;color:var(--muted);margin-top:6px">Probabilidad combinada implícita: ${(comboProb*100).toFixed(1)}%</div>
-      <button class="btn-save" style="margin-top:8px;width:100%" onclick='saveCombo(${n}, ${JSON.stringify(legs.map(l => ({home:l.f.home,away:l.f.away,league:l.f.league,date:l.f.date,pick:l.pick.label,odds:l.pick.odds}))).replace(/'/g,"\\u0027")})'>💾 Guardar y hacerle seguimiento</button>
+      <div style="font-size:11px;color:var(--accent2);margin-top:8px;font-weight:700">👆 Toca para ver completa y guardar</div>
     </div>`;
   };
+
+  COMBO_CARD_DATA = [];
+  const cards = `${noteCard(2)}${noteCard(3)}${noteCard(4)}`;
 
   return `<div class="chart-box" style="margin-bottom:16px">
     <div class="chart-box-header"><div class="chart-box-title">🎯 Mejores combinadas</div></div>
@@ -5140,9 +5155,45 @@ function renderBestCombos(fixtures) {
       Mejor pick de cada partido (el de mayor probabilidad entre 1X2, Over/Under 2.5 con cuota real, y BTTS con % histórico). No descuenta el margen de la casa de apuestas — es una referencia para comparar, no una garantía.
     </div>
     ${top5.map(row).join('')}
-    ${combo(2)}
-    ${combo(3)}
-  </div>${renderComboHistory()}`;
+    ${cards || '<div class="no-data-msg" style="padding:12px">No hay suficientes partidos con cuota real todavía para armar una combinada (se necesitan al menos 2).</div>'}
+    <button class="btn-update" style="width:100%;margin-top:10px" onclick="setPage('combos', document.querySelector('.sb-item[data-page=combos]'))">🗂️ Ver historial de combinadas guardadas</button>
+  </div>`;
+}
+
+// Abre el detalle completo de una combinada (tocada desde su "nota") en el
+// modal genérico que ya usa showMatchModal — con los botones de acción.
+function openComboDetail(idx) {
+  const c = COMBO_CARD_DATA[idx];
+  if (!c) return;
+  const saved = (STATE.trackedCombos || []).find(x => x.sig === c.sig && x.status === 'pending');
+  document.getElementById('matchModalBox').innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">🎯 Combinada de ${c.n} picks</div>
+    <div style="font-family:var(--font-mono);font-weight:900;font-size:28px;color:var(--accent);margin-bottom:4px">@${c.comboOdds.toFixed(2)}</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Probabilidad combinada implícita: ${(c.comboProb*100).toFixed(1)}%</div>
+    ${c.legs.map(l => `<div style="font-size:12.5px;color:var(--text);padding:8px 0;border-top:1px solid var(--border)">
+      <b>${l.home} vs ${l.away}</b><br>
+      <span style="color:var(--muted);font-size:11px">${l.league} · ${l.date}</span><br>
+      <span style="color:var(--accent2)">${l.pick}</span> <span style="font-family:var(--font-mono);color:var(--accent)">@${(+l.odds).toFixed(2)}</span>
+    </div>`).join('')}
+    <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+      ${saved ? `
+        <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:2px">✅ Ya la estás siguiendo — está en "Historial de combinadas"</div>
+        <button class="auth-btn danger" style="margin-top:0" onclick="deleteTrackedCombo('${saved.id}');closeModal()">🗑️ Eliminar / dejar de seguir</button>
+        <button class="btn-update" onclick="closeModal()">Cerrar</button>
+      ` : `
+        <button class="btn-save" onclick="saveComboFromDetail(${idx})">💾 Guardar y hacerle seguimiento (Seguir)</button>
+        <button class="btn-update" onclick="closeModal()">✖ No guardar</button>
+      `}
+    </div>`;
+  document.getElementById('matchModal').style.display = 'flex';
+}
+
+function saveComboFromDetail(idx) {
+  const c = COMBO_CARD_DATA[idx];
+  if (!c) return;
+  saveCombo(c.n, c.legs, c.sig);
+  closeModal();
 }
 
 // ── Seguimiento de combinadas guardadas ──────────────────────
@@ -5153,18 +5204,27 @@ function saveCombos_persist() {
   try { localStorage.setItem('fsp_tracked_combos', JSON.stringify(STATE.trackedCombos)); } catch(e) {}
 }
 
-function saveCombo(n, legs) {
+// Refresca la vista que esté activa en pantalla después de guardar/marcar/
+// eliminar una combinada (puede pasar desde "Próximos Partidos" o desde la
+// página dedicada "Historial de combinadas").
+function refreshComboViews() {
+  if (STATE.page === 'combos') renderComboHistoryPage();
+  else if (STATE.page === 'fixtures') renderFixturePageV9();
+}
+
+function saveCombo(n, legs, sig) {
   const comboOdds = legs.reduce((a, l) => a * (l.odds || 1), 1);
   STATE.trackedCombos.unshift({
     id: 'combo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
     createdAt: new Date().toISOString(),
     n, legs, comboOdds,
+    sig: sig || comboSig(legs),
     status: 'pending',
     resolvedAt: null
   });
   saveCombos_persist();
   showToast(`✅ Combinada de ${n} guardada — la vas a ver en "Historial de combinadas" para marcar si se cumplió`);
-  renderFixturePageV9();
+  refreshComboViews();
 }
 
 function resolveCombo(id, status) {
@@ -5174,13 +5234,13 @@ function resolveCombo(id, status) {
   c.resolvedAt = new Date().toISOString();
   saveCombos_persist();
   showToast(status === 'won' ? '🟢 Marcada como ganada' : '🔴 Marcada como perdida');
-  renderFixturePageV9();
+  refreshComboViews();
 }
 
 function deleteTrackedCombo(id) {
   STATE.trackedCombos = STATE.trackedCombos.filter(x => x.id !== id);
   saveCombos_persist();
-  renderFixturePageV9();
+  refreshComboViews();
 }
 
 function renderComboHistory() {
@@ -5219,6 +5279,24 @@ function renderComboHistory() {
     ${pending.length ? `<div style="font-size:11px;color:var(--muted);margin:6px 0">Pendientes por marcar (${pending.length}):</div>${pending.map(pill).join('')}` : ''}
     ${done.length ? `<div style="font-size:11px;color:var(--muted);margin:10px 0 6px">Resueltas (${done.length}):</div>${done.map(pill).join('')}` : ''}
   </div>`;
+}
+
+// Página dedicada "Historial de combinadas" (menú lateral, reemplaza a
+// Quiniela). Reutiliza renderComboHistory() para no duplicar el HTML de
+// cada tarjeta, pero con un estado vacío propio en vez de devolver ''.
+function renderComboHistoryPage() {
+  const container = document.getElementById('comboHistoryPage');
+  if (!container) return;
+  const all = STATE.trackedCombos || [];
+  if (!all.length) {
+    container.innerHTML = `<div class="matchup-empty">
+      <div class="icon">🗂️</div>
+      <div style="font-size:15px;font-weight:600;color:var(--muted2)">Todavía no has guardado ninguna combinada</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">Ve a "Próximos Partidos", toca una combinada y dale "Guardar" para hacerle seguimiento aquí.</div>
+    </div>`;
+    return;
+  }
+  container.innerHTML = renderComboHistory();
 }
 
 // ══════════════════════════════════════════════════════════════
