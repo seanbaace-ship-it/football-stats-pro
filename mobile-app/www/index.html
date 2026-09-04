@@ -73,6 +73,15 @@
 .btn-save{background:rgba(126,217,87,.12);border:1px solid rgba(126,217,87,.3);color:var(--accent);font-family:var(--font-body);font-size:12px;font-weight:700;padding:7px 14px;border-radius:8px;cursor:pointer;transition:.2s;white-space:nowrap}
 .btn-save:hover{background:rgba(126,217,87,.22);border-color:var(--accent)}
 .btn-save:active{transform:scale(.97)}
+/* Mismo estilo que .btn-save/.btn-update pero SIN quedar atrapados por la
+   regla @media(max-width:960px) que oculta los botones del header en
+   celular (.btn-save/.btn-update ahí abajo) -- estos botones de combinadas
+   sí deben verse siempre en móvil. */
+.combo-btn-primary{background:rgba(126,217,87,.12);border:1px solid rgba(126,217,87,.3);color:var(--accent);font-family:var(--font-body);font-size:12px;font-weight:700;padding:9px 14px;border-radius:8px;cursor:pointer;transition:.2s;white-space:nowrap}
+.combo-btn-primary:hover{background:rgba(126,217,87,.22);border-color:var(--accent)}
+.combo-btn-primary:active{transform:scale(.97)}
+.combo-btn-secondary{display:flex;align-items:center;justify-content:center;gap:7px;background:rgba(126,217,87,.1);border:1px solid rgba(126,217,87,.25);color:var(--accent);font-family:var(--font-body);font-size:12px;font-weight:600;padding:9px 14px;border-radius:8px;cursor:pointer;transition:.2s;white-space:nowrap}
+.combo-btn-secondary:hover{background:rgba(126,217,87,.2)}
 
 
 /* ═══════════════════════════════════════════════════════
@@ -5156,7 +5165,7 @@ function renderBestCombos(fixtures) {
     </div>
     ${top5.map(row).join('')}
     ${cards || '<div class="no-data-msg" style="padding:12px">No hay suficientes partidos con cuota real todavía para armar una combinada (se necesitan al menos 2).</div>'}
-    <button class="btn-update" style="width:100%;margin-top:10px" onclick="setPage('combos', document.querySelector('.sb-item[data-page=combos]'))">🗂️ Ver historial de combinadas guardadas</button>
+    <button class="combo-btn-secondary" style="width:100%;margin-top:10px;justify-content:center" onclick="setPage('combos', document.querySelector('.sb-item[data-page=combos]'))">🗂️ Ver historial de combinadas guardadas</button>
   </div>`;
 }
 
@@ -5171,19 +5180,21 @@ function openComboDetail(idx) {
     <div style="font-size:11px;color:var(--muted);margin-bottom:4px">🎯 Combinada de ${c.n} picks</div>
     <div style="font-family:var(--font-mono);font-weight:900;font-size:28px;color:var(--accent);margin-bottom:4px">@${c.comboOdds.toFixed(2)}</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Probabilidad combinada implícita: ${(c.comboProb*100).toFixed(1)}%</div>
+    <div style="padding-bottom:8px">
     ${c.legs.map(l => `<div style="font-size:12.5px;color:var(--text);padding:8px 0;border-top:1px solid var(--border)">
       <b>${l.home} vs ${l.away}</b><br>
       <span style="color:var(--muted);font-size:11px">${l.league} · ${l.date}</span><br>
       <span style="color:var(--accent2)">${l.pick}</span> <span style="font-family:var(--font-mono);color:var(--accent)">@${(+l.odds).toFixed(2)}</span>
     </div>`).join('')}
-    <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+    </div>
+    <div style="position:sticky;bottom:-22px;margin:8px -22px -22px;padding:12px 22px 22px;background:#101f18;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:8px">
       ${saved ? `
         <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:2px">✅ Ya la estás siguiendo — está en "Historial de combinadas"</div>
         <button class="auth-btn danger" style="margin-top:0" onclick="deleteTrackedCombo('${saved.id}');closeModal()">🗑️ Eliminar / dejar de seguir</button>
-        <button class="btn-update" onclick="closeModal()">Cerrar</button>
+        <button class="combo-btn-secondary" onclick="closeModal()">Cerrar</button>
       ` : `
-        <button class="btn-save" onclick="saveComboFromDetail(${idx})">💾 Guardar y hacerle seguimiento (Seguir)</button>
-        <button class="btn-update" onclick="closeModal()">✖ No guardar</button>
+        <button class="combo-btn-primary" onclick="saveComboFromDetail(${idx})">💾 Guardar y hacerle seguimiento (Seguir)</button>
+        <button class="combo-btn-secondary" onclick="closeModal()">✖ No guardar</button>
       `}
     </div>`;
   document.getElementById('matchModal').style.display = 'flex';
@@ -5259,7 +5270,7 @@ function renderComboHistory() {
     ${c.legs.map(l => `<div style="font-size:10.5px;color:var(--muted2)">• ${l.home} vs ${l.away} — ${l.pick}${l.odds?' @'+(+l.odds).toFixed(2):''}</div>`).join('')}
     <div style="margin-top:8px;display:flex;gap:6px;align-items:center">
       ${c.status === 'pending' ? `
-        <button class="btn-save" style="flex:1" onclick="resolveCombo('${c.id}','won')">🟢 Se cumplió</button>
+        <button class="combo-btn-primary" style="flex:1" onclick="resolveCombo('${c.id}','won')">🟢 Se cumplió</button>
         <button class="auth-btn danger" style="flex:1;margin-top:0;padding:7px" onclick="resolveCombo('${c.id}','lost')">🔴 No se cumplió</button>
       ` : `
         <span style="font-size:11px;font-weight:700;color:${c.status==='won'?'var(--accent)':'var(--accent3)'}">${c.status==='won'?'🟢 Se cumplió':'🔴 No se cumplió'} · ${new Date(c.resolvedAt).toLocaleDateString('es-CO')}</span>
