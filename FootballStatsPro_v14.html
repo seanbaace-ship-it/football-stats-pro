@@ -1534,9 +1534,10 @@ function applySeasonFilter() {
 
 const LEAGUE_MAP = {
   'E0':'Premier League','E1':'Championship','E2':'League One','E3':'League Two',
-  'SP1':'La Liga','D1':'Bundesliga','D2':'2. Bundesliga','I1':'Serie A',
+  'SP1':'La Liga','SP2':'Segunda División','D1':'Bundesliga','D2':'2. Bundesliga','I1':'Serie A','I2':'Serie B',
   'F1':'Ligue 1','F2':'Ligue 2','N1':'Eredivisie','B1':'Pro League Bélgica',
-  'SC0':'Scottish Premiership','P1':'Primeira Liga','T1':'Süper Lig',
+  'SC0':'Scottish Premiership','SC1':'Scottish Championship','SC2':'Scottish League One','SC3':'Scottish League Two',
+  'P1':'Primeira Liga','T1':'Süper Lig',
   'G1':'Super League Grecia','EC':'National League'
 };
 
@@ -4463,9 +4464,10 @@ function normalizeFixture(row) {
 
   const LEAGUE_MAP = {
     'E0':'Premier League','E1':'Championship','E2':'League One','E3':'League Two',
-    'SP1':'La Liga','D1':'Bundesliga','D2':'2. Bundesliga','I1':'Serie A',
+    'SP1':'La Liga','SP2':'Segunda División','D1':'Bundesliga','D2':'2. Bundesliga','I1':'Serie A','I2':'Serie B',
     'F1':'Ligue 1','F2':'Ligue 2','N1':'Eredivisie','B1':'Pro League Bélgica',
-    'SC0':'Scottish Premiership','P1':'Primeira Liga','T1':'Süper Lig',
+    'SC0':'Scottish Premiership','SC1':'Scottish Championship','SC2':'Scottish League One','SC3':'Scottish League Two',
+    'P1':'Primeira Liga','T1':'Süper Lig',
     'G1':'Super League Grecia','EC':'National League'
   };
 
@@ -4578,7 +4580,9 @@ async function loadFixturesFromMirror() {
     if (status) {
       status.innerHTML = meta
         ? `<div style="color:var(--accent)">✓ ${meta.totalFixtures} partidos — ${meta.leagues.length} ligas</div>
-           <div style="color:var(--muted);margin-top:4px">Actualizado: ${new Date(meta.generatedAt).toLocaleString('es-CO')}</div>`
+           <div style="color:var(--muted);margin-top:4px">Copiado por la app: ${new Date(meta.generatedAt).toLocaleString('es-CO')}</div>
+           ${meta.sourceLastModified ? `<div style="color:var(--muted)">football-data.co.uk lo actualizó: ${new Date(meta.sourceLastModified).toLocaleString('es-CO')}</div>` : ''}
+           <div style="color:var(--muted);font-size:10px;margin-top:2px">Fuente: football-data.co.uk/fixtures.xlsx</div>`
         : `<div style="color:var(--accent)">✓ ${fixtures.length} partidos recibidos</div>`;
     }
 

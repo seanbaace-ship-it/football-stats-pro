@@ -15,9 +15,10 @@ const FIXTURES_URL = 'https://www.football-data.co.uk/fixtures.xlsx';
 
 const LEAGUE_MAP = {
   'E0':'Premier League','E1':'Championship','E2':'League One','E3':'League Two',
-  'SP1':'La Liga','D1':'Bundesliga','D2':'2. Bundesliga','I1':'Serie A',
+  'SP1':'La Liga','SP2':'Segunda División','D1':'Bundesliga','D2':'2. Bundesliga','I1':'Serie A','I2':'Serie B',
   'F1':'Ligue 1','F2':'Ligue 2','N1':'Eredivisie','B1':'Pro League Bélgica',
-  'SC0':'Scottish Premiership','P1':'Primeira Liga','T1':'Süper Lig',
+  'SC0':'Scottish Premiership','SC1':'Scottish Championship','SC2':'Scottish League One','SC3':'Scottish League Two',
+  'P1':'Primeira Liga','T1':'Süper Lig',
   'G1':'Super League Grecia','EC':'National League'
 };
 
@@ -88,6 +89,11 @@ function normalizeFixture(row) {
 async function main() {
   const res = await fetch(FIXTURES_URL);
   if (!res.ok) throw new Error(`HTTP ${res.status} al descargar fixtures.xlsx`);
+  // Trazabilidad: football-data.co.uk actualiza este archivo varias veces al
+  // dia (no en un horario fijo) -- guardamos cuando ELLOS lo actualizaron por
+  // ultima vez, no solo cuando NOSOTROS lo copiamos, para poder distinguir
+  // "la app esta desactualizada" de "la fuente todavia no ha publicado lo nuevo".
+  const sourceLastModified = res.headers.get('last-modified') || null;
   const buf = Buffer.from(await res.arrayBuffer());
 
   const wb = XLSX.read(buf, { type: 'buffer', cellDates: true });
@@ -116,6 +122,7 @@ async function main() {
   fs.writeFileSync(path.join(outDir, 'fixtures.json'), JSON.stringify(fixtures));
   fs.writeFileSync(path.join(outDir, 'fixtures-meta.json'), JSON.stringify({
     generatedAt: new Date().toISOString(),
+    sourceLastModified,
     totalFixtures: fixtures.length,
     leagues: [...new Set(fixtures.map(f => f.league))].sort()
   }, null, 2));

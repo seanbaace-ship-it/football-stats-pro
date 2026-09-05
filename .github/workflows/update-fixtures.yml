@@ -1,0 +1,42 @@
+name: Update upcoming fixtures (mas frecuente)
+
+# fixtures.xlsx en football-data.co.uk cambia varias veces al dia, sin horario
+# fijo -- el "Update football-data.co.uk mirror" (resultados historicos +
+# escudos) solo corre una vez al dia y a veces alcanza a copiar fixtures.xlsx
+# ANTES de que ellos lo actualicen ese dia, dejando la app un dia atrasada.
+# Este workflow solo repite la parte de fixtures, mas seguido, para que no
+# pase tanto tiempo entre que ellos publican partidos nuevos y que la app
+# los muestra.
+
+on:
+  schedule:
+    - cron: '30 */2 * * *'  # cada 2 horas (minuto 30, para no chocar con el commit de las 06:00 del otro workflow)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Fetch upcoming fixtures
+        run: node scripts/fetch-fixtures.js
+
+      - name: Commit and push if data changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/fixtures.json data/fixtures-meta.json
+          git diff --staged --quiet && echo "Sin cambios en los proximos partidos." || (git commit -m "Actualizar proximos partidos [automatico]" && git pull --rebase origin main && git push)
