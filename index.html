@@ -5112,23 +5112,35 @@ function statPicksForFixture(f) {
   const as = calcFullStats(f.away, 'away', f.league);
   if (!hs && !as) return [];
   const avg = (key) => ((hs?.[key] || 0) + (as?.[key] || 0)) / 2;
+
+  // Validación del tamaño de muestra: con muy pocos partidos cargados el %
+  // histórico puede salir en 100%/0% solo porque hay 1 o 2 partidos (no
+  // porque sea realmente así de seguro) — eso es lo que hacía ver picks
+  // "raros". Por debajo de este mínimo, mejor no ofrecer el pick que
+  // ofrecer un número que no se puede sostener.
+  const MIN_SAMPLE = 6;
+  const sampleN = (hs?.n || 0) + (as?.n || 0);
+  if (sampleN < MIN_SAMPLE) return [];
+
   const picks = [];
 
   const bttsProb = avg('pctBtts') / 100;
-  if (bttsProb) picks.push({ label: 'BTTS — Ambos marcan (histórico)', prob: bttsProb, hasRealOdds: false, market: 'btts' });
+  if (bttsProb) picks.push({ label: `BTTS — Ambos marcan (histórico, ${sampleN} partidos)`, prob: bttsProb, hasRealOdds: false, market: 'btts', sampleN });
 
   // Para corners/tarjetas/tiros/faltas no hay cuota que diga "más" o
   // "menos" — se ofrece el lado que la historia reciente de los dos
-  // equipos respalda.
+  // equipos respalda. El número de partidos queda visible en el label
+  // mismo, para poder auditar de un vistazo qué tan sólido es el pick.
   const overUnderPick = (pctOverKey, lineLabel, marketLabel, marketKey) => {
     const pctOver = avg(pctOverKey);
     if (!pctOver) return null;
     const over = pctOver >= 50;
     return {
-      label: `${marketLabel} — ${over ? 'Más' : 'Menos'} de ${lineLabel} (histórico)`,
+      label: `${marketLabel} — ${over ? 'Más' : 'Menos'} de ${lineLabel} (histórico, ${sampleN} partidos)`,
       prob: (over ? pctOver : 100 - pctOver) / 100,
       hasRealOdds: false,
-      market: marketKey
+      market: marketKey,
+      sampleN
     };
   };
   [
