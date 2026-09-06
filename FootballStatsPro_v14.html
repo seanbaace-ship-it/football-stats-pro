@@ -2550,6 +2550,7 @@ function renderFixturePageV9() {
   //    debajo del panel de filtros y era muy difícil de encontrar en el
   //    celular sin hacer scroll) ───────────────────────────────
   html += renderBestCombos(fixtures);
+  html += renderLeagueLeaders();
 
   // ── PANEL DE FILTROS (siempre visible si hay ligas) ─────────
   if (allLeagues.length >= 1) {
@@ -4677,6 +4678,12 @@ function calcFullStats(team, role, league) {
   const over25=matches.filter(m=>(m.FTHG+m.FTAG)>2).length;
   const over35=matches.filter(m=>(m.FTHG+m.FTAG)>3).length;
   const under25=matches.filter(m=>(m.FTHG+m.FTAG)<=2).length;
+  // Lineas de corners/tarjetas/tiros a puerta -- total del partido (ambos
+  // equipos), no solo lo que hace este equipo, para que reflejen la misma
+  // pregunta que hace un mercado real de "más/menos de X en el partido".
+  const cornersOver = matches.filter(m=>((m.HC||0)+(m.AC||0))>9.5).length;
+  const cardsOver    = matches.filter(m=>((m.HY||0)+(m.AY||0))>3.5).length;
+  const shotsOnOver  = matches.filter(m=>((m.HST||0)+(m.AST||0))>8.5).length;
   const cs=matches.filter(m=>m[gaK]===0).length;
   const scored=matches.filter(m=>m[gfK]>0).length;
   const scored2=matches.filter(m=>m[gfK]>=2).length;
@@ -4707,6 +4714,7 @@ function calcFullStats(team, role, league) {
     pctWin:wins/n*100, pctDraw:draws/n*100, pctLoss:(n-wins-draws)/n*100,
     pctBtts:btts/n*100, pctOver25:over25/n*100, pctOver35:over35/n*100,
     pctUnder25:under25/n*100, pctCs:cs/n*100,
+    pctCornersOver:cornersOver/n*100, pctCardsOver:cardsOver/n*100, pctShotsOnOver:shotsOnOver/n*100,
     pctScored:scored/n*100, pctScored2:scored2/n*100,
     pctWinHT:winHT/n*100, pctCsHT:csHT/n*100,
     form: getRecentForm(team, league||'all', 5),
@@ -5074,16 +5082,41 @@ function oddsPicksForFixture(f) {
     .map(c => ({ ...c, prob: 1 / c.odds, hasRealOdds: true }));
 }
 
-// BTTS no tiene cuota en los datos de football-data.co.uk para próximos
-// partidos, así que se usa el % histórico de ambos equipos como probabilidad
-// (no es una cuota real — se marca aparte y no entra en las combinadas).
+// BTTS, corners, tarjetas y tiros a puerta no traen cuota real en los datos
+// de football-data.co.uk para próximos partidos (solo traen 1X2 y
+// Over/Under 2.5 goles) — para esos mercados se usa el % histórico del
+// partido completo (ambos equipos) como probabilidad. Se marcan aparte
+// ("estadística, sin cuota real") y no entran en las combinadas, que solo
+// multiplican cuotas reales.
 function statPicksForFixture(f) {
   const hs = calcFullStats(f.home, 'home', f.league);
   const as = calcFullStats(f.away, 'away', f.league);
   if (!hs && !as) return [];
-  const bttsProb = ((hs?.pctBtts || 0) + (as?.pctBtts || 0)) / 200;
-  if (!bttsProb) return [];
-  return [{ label: 'BTTS — Ambos marcan (histórico)', prob: bttsProb, hasRealOdds: false }];
+  const avg = (key) => ((hs?.[key] || 0) + (as?.[key] || 0)) / 2;
+  const picks = [];
+
+  const bttsProb = avg('pctBtts') / 100;
+  if (bttsProb) picks.push({ label: 'BTTS — Ambos marcan (histórico)', prob: bttsProb, hasRealOdds: false });
+
+  // Para corners/tarjetas/tiros no hay cuota que diga "más" o "menos" —
+  // se ofrece el lado que la historia reciente de los dos equipos respalda.
+  const overUnderPick = (pctOverKey, lineLabel, marketLabel) => {
+    const pctOver = avg(pctOverKey);
+    if (!pctOver) return null;
+    const over = pctOver >= 50;
+    return {
+      label: `${marketLabel} — ${over ? 'Más' : 'Menos'} de ${lineLabel} (histórico)`,
+      prob: (over ? pctOver : 100 - pctOver) / 100,
+      hasRealOdds: false
+    };
+  };
+  [
+    overUnderPick('pctCornersOver', '9.5 córners', 'Corners'),
+    overUnderPick('pctCardsOver', '3.5 amarillas', 'Tarjetas'),
+    overUnderPick('pctShotsOnOver', '8.5 tiros a puerta', 'Tiros a puerta')
+  ].forEach(p => { if (p) picks.push(p); });
+
+  return picks;
 }
 
 function bestPickForFixture(f) {
@@ -5116,9 +5149,12 @@ function renderBestCombos(fixtures) {
   }
 
   const top5 = picks.slice(0, 5);
-  // Las combinadas solo pueden armarse con picks de cuota real (BTTS es
-  // estimación estadística, no se puede multiplicar como si fuera una cuota).
-  const comboEligible = picks.filter(p => p.pick.hasRealOdds).slice(0, 6);
+  // Las combinadas solo pueden armarse con picks de cuota real (los mercados
+  // estadísticos como BTTS/corners/tarjetas no se pueden multiplicar como si
+  // fueran una cuota). Tampoco se usan picks "demasiado seguros" — por debajo
+  // de 1.40 el pago no compensa el espacio que ocupan en la combinada.
+  const MIN_COMBO_ODDS = 1.40;
+  const comboEligible = picks.filter(p => p.pick.hasRealOdds && p.pick.odds >= MIN_COMBO_ODDS).slice(0, 6);
 
   const row = (p, i) => `<div class="fx-stat" style="grid-template-columns:24px 1fr auto;border-top:${i?'1px solid var(--border)':'none'}">
       <span style="font-family:var(--font-mono);color:var(--muted);font-size:11px">${i+1}</span>
@@ -5165,12 +5201,64 @@ function renderBestCombos(fixtures) {
   return `<div class="chart-box" style="margin-bottom:16px">
     <div class="chart-box-header"><div class="chart-box-title">🎯 Mejores combinadas</div></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px">
-      Mejor pick de cada partido (el de mayor probabilidad entre 1X2, Over/Under 2.5 con cuota real, y BTTS con % histórico). No descuenta el margen de la casa de apuestas — es una referencia para comparar, no una garantía.
+      Mejor pick de cada partido: el de mayor probabilidad entre 1X2 y Over/Under 2.5 con cuota real, y BTTS/corners/tarjetas/tiros a puerta con % histórico del partido (estos últimos no tienen cuota real en la fuente de datos — no se pueden usar en las combinadas, solo son referencia). Las combinadas solo usan picks con cuota real de al menos @${MIN_COMBO_ODDS.toFixed(2)}. No descuenta el margen de la casa de apuestas — es una referencia para comparar, no una garantía.
     </div>
     ${top5.map(row).join('')}
     ${cards || '<div class="no-data-msg" style="padding:12px">No hay suficientes partidos con cuota real todavía para armar una combinada (se necesitan al menos 2).</div>'}
     <button class="combo-btn-secondary" style="width:100%;margin-top:10px;justify-content:center" onclick="setPage('combos', document.querySelector('.sb-item[data-page=combos]'))">🗂️ Ver historial de combinadas guardadas</button>
   </div>`;
+}
+
+// ── Ligas más "generosas" por mercado ────────────────────────
+// Contexto para los picks estadísticos de arriba: en qué ligas es más
+// probable que CUALQUIER partido pase de goles/corners/tarjetas/faltas, sin
+// importar los equipos. No cambia el cálculo de los picks — es información
+// para decidir en qué liga vale más la pena mirar ese mercado.
+function computeLeagueLeaders() {
+  const byLeague = {};
+  for (const m of MATCHES) {
+    const lg = m.LeagueName;
+    if (!lg) continue;
+    if (!byLeague[lg]) byLeague[lg] = { n: 0, goals: 0, corners: 0, cards: 0, fouls: 0 };
+    const b = byLeague[lg];
+    b.n++;
+    b.goals   += (m.FTHG || 0) + (m.FTAG || 0);
+    b.corners += (m.HC   || 0) + (m.AC   || 0);
+    b.cards   += (m.HY   || 0) + (m.AY   || 0);
+    b.fouls   += (m.HF   || 0) + (m.AF   || 0);
+  }
+  const MIN_MATCHES = 15; // que el promedio sea representativo, no 2-3 partidos sueltos
+  const leagues = Object.entries(byLeague)
+    .filter(([, b]) => b.n >= MIN_MATCHES)
+    .map(([name, b]) => ({
+      name, n: b.n,
+      avgGoals: b.goals / b.n, avgCorners: b.corners / b.n, avgCards: b.cards / b.n, avgFouls: b.fouls / b.n
+    }));
+  const top = (key, n = 5) => leagues.slice().sort((a, b) => b[key] - a[key]).slice(0, n);
+  return { goals: top('avgGoals'), corners: top('avgCorners'), cards: top('avgCards'), fouls: top('avgFouls') };
+}
+
+function renderLeagueLeaders() {
+  if (!MATCHES.length) return '';
+  const L = computeLeagueLeaders();
+  if (!L.goals.length) return '';
+
+  const list = (arr, key) => arr.map((l, i) => `<div class="fx-stat" style="grid-template-columns:20px 1fr auto;border-top:${i ? '1px solid var(--border)' : 'none'}">
+      <span style="font-family:var(--font-mono);color:var(--muted);font-size:10px">${i + 1}</span>
+      <span style="font-size:12px;color:var(--text)">${l.name}</span>
+      <span style="font-family:var(--font-mono);font-weight:800;font-size:13px;color:var(--accent)">${l[key].toFixed(1)}</span>
+    </div>`).join('');
+
+  return `<details class="chart-box" style="margin-bottom:16px">
+    <summary style="cursor:pointer;font-family:var(--font-display);font-weight:800;font-size:14px;color:var(--text)">📊 Ligas más generosas por mercado <span style="color:var(--muted);font-weight:500;font-size:11px">(toca para ver)</span></summary>
+    <div style="font-size:11px;color:var(--muted);margin:10px 0">Promedio del partido completo (ambos equipos) con los datos históricos cargados. Es contexto de liga, no cambia los picks de cada partido de arriba.</div>
+    <div class="chart-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div><b style="font-size:11px;color:var(--muted2)">⚽ Más goles por partido</b>${list(L.goals, 'avgGoals')}</div>
+      <div><b style="font-size:11px;color:var(--muted2)">🚩 Más córners por partido</b>${list(L.corners, 'avgCorners')}</div>
+      <div><b style="font-size:11px;color:var(--muted2)">🟨 Más tarjetas por partido</b>${list(L.cards, 'avgCards')}</div>
+      <div><b style="font-size:11px;color:var(--muted2)">🦶 Más faltas por partido</b>${list(L.fouls, 'avgFouls')}</div>
+    </div>
+  </details>`;
 }
 
 // Abre el detalle completo de una combinada (tocada desde su "nota") en el
@@ -5258,6 +5346,62 @@ function deleteTrackedCombo(id) {
   refreshComboViews();
 }
 
+// Clasifica el texto de un pick en un mercado, para el reporte por
+// categoría del historial (los labels ya vienen armados en
+// oddsPicksForFixture/statPicksForFixture, así que basta con reconocerlos).
+function categorizeLegLabel(label) {
+  if (/^1X2/.test(label)) return '1X2 (ganar/empate)';
+  if (/goles/i.test(label)) return 'Goles (Over/Under)';
+  if (/BTTS/.test(label)) return 'BTTS';
+  if (/Corners/i.test(label)) return 'Corners';
+  if (/Tarjetas/i.test(label)) return 'Tarjetas';
+  if (/Tiros a puerta/i.test(label)) return 'Tiros a puerta';
+  return 'Otro';
+}
+
+// Acierto por mercado entre las combinadas ya resueltas. Ojo: el resultado
+// (ganó/perdió) es de la COMBINADA completa, no de cada pick por separado
+// -- si una combinada de 3 picks falló no sabemos cuál de los 3 fue, así
+// que cada mercado presente en la combinada se cuenta con ese mismo
+// resultado. Es una aproximación útil para ver tendencias, no una medición
+// exacta pick por pick.
+function computeComboCategoryStats(all) {
+  const stats = {};
+  for (const c of all.filter(c => c.status !== 'pending')) {
+    const cats = new Set((c.legs || []).map(l => categorizeLegLabel(l.pick || '')));
+    for (const cat of cats) {
+      if (!stats[cat]) stats[cat] = { won: 0, total: 0 };
+      stats[cat].total++;
+      if (c.status === 'won') stats[cat].won++;
+    }
+  }
+  return stats;
+}
+
+function renderComboCategoryDashboard(all) {
+  const stats = computeComboCategoryStats(all);
+  const cats = Object.entries(stats).sort((a, b) => b[1].total - a[1].total);
+  if (!cats.length) return '';
+  const bar = ([name, s]) => {
+    const pct = s.total ? (s.won / s.total * 100) : 0;
+    const color = pct >= 50 ? 'var(--accent)' : 'var(--accent3)';
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+        <span style="color:var(--text)">${name}</span>
+        <span style="color:var(--muted)">${s.won}/${s.total} · <b style="color:${color}">${pct.toFixed(0)}%</b></span>
+      </div>
+      <div style="height:6px;border-radius:4px;background:var(--surface2);overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color}"></div>
+      </div>
+    </div>`;
+  };
+  return `<div style="margin:4px 0 16px">
+    <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px">📈 Acierto por tipo de mercado</div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px">Por combinada resuelta, no por pick individual — si una combinada de varios picks falló, no sabemos cuál exacto fue.</div>
+    ${cats.map(bar).join('')}
+  </div>`;
+}
+
 function renderComboHistory() {
   const all = STATE.trackedCombos || [];
   if (!all.length) return '';
@@ -5291,6 +5435,7 @@ function renderComboHistory() {
       <div class="chart-box-title">📊 Historial de combinadas</div>
       ${winRate !== null ? `<span style="font-family:var(--font-mono);font-size:12px;font-weight:800;color:var(--accent)">${winRate.toFixed(0)}% acierto (${won}/${resolved.length})</span>` : ''}
     </div>
+    ${renderComboCategoryDashboard(all)}
     ${pending.length ? `<div style="font-size:11px;color:var(--muted);margin:6px 0">Pendientes por marcar (${pending.length}):</div>${pending.map(pill).join('')}` : ''}
     ${done.length ? `<div style="font-size:11px;color:var(--muted);margin:10px 0 6px">Resueltas (${done.length}):</div>${done.map(pill).join('')}` : ''}
   </div>`;
