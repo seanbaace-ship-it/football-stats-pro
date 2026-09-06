@@ -5341,10 +5341,11 @@ function openComboDetail(idx) {
     <div style="font-family:var(--font-mono);font-weight:900;font-size:28px;color:var(--accent);margin-bottom:4px">${c.hasRealOdds ? '@' : '≈'}${c.comboOdds.toFixed(2)}</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Probabilidad combinada${c.hasRealOdds ? ' implícita' : ' (histórica)'}: ${(c.comboProb*100).toFixed(1)}%${c.hasRealOdds ? '' : ' — sin cuota real, la cifra de arriba es solo 1/probabilidad'}</div>
     <div style="padding-bottom:8px">
-    ${c.legs.map(l => `<div style="font-size:12.5px;color:var(--text);padding:8px 0;border-top:1px solid var(--border)">
-      <b>${l.home} vs ${l.away}</b><br>
+    ${c.legs.map((l, li) => `<div style="font-size:12.5px;color:var(--text);padding:8px 0;border-top:1px solid var(--border);cursor:pointer" onclick="showComboLegH2H(${idx},${li})">
+      <b>🔍 ${l.home} vs ${l.away}</b><br>
       <span style="color:var(--muted);font-size:11px">${l.league} · ${l.date}</span><br>
       <span style="color:var(--accent2)">${l.pick}</span>${l.odds ? ` <span style="font-family:var(--font-mono);color:var(--accent)">@${(+l.odds).toFixed(2)}</span>` : ''}
+      <div style="font-size:9px;color:var(--muted);margin-top:3px">Toca para ver los últimos enfrentamientos entre estos dos</div>
     </div>`).join('')}
     </div>
     <div style="position:sticky;bottom:-22px;margin:8px -22px -22px;padding:12px 22px 22px;background:var(--surface);border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:8px">
@@ -5357,6 +5358,47 @@ function openComboDetail(idx) {
         <button class="combo-btn-secondary" onclick="closeModal()">✖ No guardar</button>
       `}
     </div>`;
+  document.getElementById('matchModal').style.display = 'flex';
+}
+
+// Al tocar un partido dentro de una combinada abierta: últimos
+// enfrentamientos directos entre esos dos equipos (mismo patrón de H2H que
+// ya se usa en Análisis Partido/Predictor), con botón para volver a la
+// combinada y cada resultado clicable para ver el detalle completo.
+function showComboLegH2H(comboIdx, legIdx) {
+  const c = COMBO_CARD_DATA[comboIdx];
+  const l = c && c.legs[legIdx];
+  if (!l) return;
+  const { home, away } = l;
+
+  const h2h = MATCHES.filter(m =>
+    (m.HomeTeam === home && m.AwayTeam === away) || (m.HomeTeam === away && m.AwayTeam === home)
+  ).sort((a, b) => b.Date.localeCompare(a.Date)).slice(0, 2);
+
+  const h2hHtml = h2h.length ? h2h.map(m => {
+    const hW = m.FTR === 'H' ? m.HomeTeam : m.FTR === 'A' ? m.AwayTeam : 'Empate';
+    const wc = m.FTR === 'H' ? 'var(--blue)' : m.FTR === 'A' ? 'var(--red)' : 'var(--muted2)';
+    return `<div style="padding:10px;background:var(--surface2);border-radius:8px;margin-bottom:8px;cursor:pointer" onclick='showMatchModal(${JSON.stringify(m).replace(/</g,"\\u003c").replace(/>/g,"\\u003e").replace(/'/g,"\\u0027")})'>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:12px;color:var(--blue);font-weight:600">${m.HomeTeam}</span>
+        <span style="font-family:var(--font-display);font-size:18px;font-weight:900;color:var(--text)">${m.FTHG}-${m.FTAG}</span>
+        <span style="font-size:12px;color:var(--red);font-weight:600">${m.AwayTeam}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px">
+        <span style="font-size:10px;color:var(--muted)">${m.Date} · ${m.LeagueName}</span>
+        <span style="font-size:10px;font-weight:700;color:${wc}">${hW}</span>
+      </div>
+    </div>`;
+  }).join('') : '<div class="no-data-msg" style="padding:14px">Sin enfrentamientos directos en el historial cargado todavía.</div>';
+
+  document.getElementById('matchModalBox').innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">🔍 Últimos enfrentamientos directos</div>
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px">${home} vs ${away}</div>
+    ${h2hHtml}
+    ${h2h.length ? '<div style="font-size:10px;color:var(--muted);margin-top:4px">Toca un resultado para ver las estadísticas completas de ese partido.</div>' : ''}
+    <button class="combo-btn-secondary" style="width:100%;margin-top:16px;justify-content:center" onclick="openComboDetail(${comboIdx})">← Volver a la combinada</button>
+  `;
   document.getElementById('matchModal').style.display = 'flex';
 }
 
