@@ -420,7 +420,7 @@ tbody td.num{text-align:center;color:var(--muted2)}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)}
-.modal-box{background:#101f18;border:1px solid var(--border2);border-radius:16px;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;padding:22px}
+.modal-box{background:var(--surface);border:1px solid var(--border2);border-radius:16px;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;padding:22px}
 .modal-close{float:right;background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;transition:.15s}
 .modal-close:hover{color:var(--text)}
 .match-scoreboard{background:var(--surface2);border-radius:12px;padding:18px;margin:14px 0;display:flex;align-items:center;justify-content:space-between}
@@ -2546,13 +2546,9 @@ function renderFixturePageV9() {
     </div>
   </div>`;
 
-  // ── MEJORES COMBINADAS (arriba de todo — antes quedaba enterrada
-  //    debajo del panel de filtros y era muy difícil de encontrar en el
-  //    celular sin hacer scroll) ───────────────────────────────
-  html += renderBestCombos(fixtures);
-  html += renderLeagueLeaders();
-
   // ── PANEL DE FILTROS (siempre visible si hay ligas) ─────────
+  // Va antes que las combinadas para que el usuario filtre primero
+  // (liga/fecha) y vea el resultado reflejado justo debajo.
   if (allLeagues.length >= 1) {
     html += `<div class="fixture-filter-panel">
 
@@ -2624,6 +2620,10 @@ function renderFixturePageV9() {
 
     html += `</div>`; // cierre fixture-filter-panel
   }
+
+  // ── MEJORES COMBINADAS (ya reflejan el filtro de arriba) ────
+  html += renderBestCombos(fixtures);
+  html += renderLeagueLeaders();
 
   // ── TOP ESTADÍSTICAS (respeta filtros) ─────────────────────
   html += renderGlobalTop5();
@@ -5279,7 +5279,7 @@ function openComboDetail(idx) {
       <span style="color:var(--accent2)">${l.pick}</span> <span style="font-family:var(--font-mono);color:var(--accent)">@${(+l.odds).toFixed(2)}</span>
     </div>`).join('')}
     </div>
-    <div style="position:sticky;bottom:-22px;margin:8px -22px -22px;padding:12px 22px 22px;background:#101f18;border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:8px">
+    <div style="position:sticky;bottom:-22px;margin:8px -22px -22px;padding:12px 22px 22px;background:var(--surface);border-top:1px solid var(--border2);display:flex;flex-direction:column;gap:8px">
       ${saved ? `
         <div style="font-size:12px;color:var(--accent);font-weight:700;margin-bottom:2px">✅ Ya la estás siguiendo — está en "Historial de combinadas"</div>
         <button class="auth-btn danger" style="margin-top:0" onclick="deleteTrackedCombo('${saved.id}');closeModal()">🗑️ Eliminar / dejar de seguir</button>
