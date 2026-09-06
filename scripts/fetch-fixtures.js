@@ -86,9 +86,22 @@ function normalizeFixture(row) {
   return { date: date || 'Sin fecha', league: league || 'Sin liga', home, away, time, odds: hasOdds ? odds : null };
 }
 
+// football-data.co.uk a veces responde 503 momentaneamente (servidor
+// pequeño, se satura) -- como ahora se consulta cada 2 horas en vez de una
+// vez al dia, vale la pena reintentar un par de veces antes de rendirse y
+// dejar la app sin actualizar hasta el siguiente ciclo.
+async function fetchWithRetry(url, attempts = 3) {
+  for (let i = 1; i <= attempts; i++) {
+    const res = await fetch(url);
+    if (res.ok) return res;
+    if (i === attempts) throw new Error(`HTTP ${res.status} al descargar fixtures.xlsx (tras ${attempts} intentos)`);
+    console.log(`HTTP ${res.status}, reintentando (${i}/${attempts})...`);
+    await new Promise(r => setTimeout(r, 5000 * i));
+  }
+}
+
 async function main() {
-  const res = await fetch(FIXTURES_URL);
-  if (!res.ok) throw new Error(`HTTP ${res.status} al descargar fixtures.xlsx`);
+  const res = await fetchWithRetry(FIXTURES_URL);
   // Trazabilidad: football-data.co.uk actualiza este archivo varias veces al
   // dia (no en un horario fijo) -- guardamos cuando ELLOS lo actualizaron por
   // ultima vez, no solo cuando NOSOTROS lo copiamos, para poder distinguir
