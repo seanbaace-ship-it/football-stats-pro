@@ -1428,6 +1428,10 @@ print(f'Listo: {len(matches)} partidos exportados a matches.json')</div>
         <div class="guide-sub">Descarga los próximos partidos de todas las ligas configuradas — el mismo proceso automático que ya actualiza el histórico a diario.</div>
         <button class="btn-ai" id="fdcoFixturesBtn" onclick="loadFixturesFromMirror()" style="margin-top:10px">🌐 Actualizar próximos partidos</button>
         <div id="fdcoFixturesStatus" style="margin-top:10px;font-size:12px;line-height:1.7"></div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">¿La fuente automática no trae un partido, o está caída? Agrégalo tú mismo buscando liga y equipos, con tus propias cuotas.</div>
+          <button class="combo-btn-secondary" onclick="openManualFixtureModal()">➕ Agregar partido a mano</button>
+        </div>
       </div>
       <div class="chart-grid-2" style="margin-bottom:16px">
         <div class="chart-box">
@@ -1564,8 +1568,15 @@ let STATE = {
   fixtures:     JSON.parse(localStorage.getItem('fsp_fixtures') || '[]'),
   fixtureView:  'cards',
   fixtureFilterDate:   '',  // filtro de fecha activo
-  fixtureFilterLeague: ''   // filtro de liga activo
+  fixtureFilterLeague: '',  // filtro de liga activo
+  // Partidos agregados a mano (con o sin cuotas propias) cuando la fuente
+  // automática no trae el partido o está caída -- se guardan aparte de
+  // fsp_fixtures para que sobrevivan cualquier recarga del espejo/Excel.
+  manualFixtures: JSON.parse(localStorage.getItem('fsp_manual_fixtures') || '[]')
 };
+// Los partidos manuales siempre van primero y se re-mezclan cada vez que
+// STATE.fixtures se reemplaza por completo (ver mergeManualFixtures()).
+STATE.fixtures = [...STATE.manualFixtures, ...STATE.fixtures];
 let CHARTS = {};
 
 // ═══════════════════════════════════════════════════════════════
@@ -2394,6 +2405,8 @@ function renderFixtureCardV8(fixture, idx) {
       <div style="display:flex;gap:6px;align-items:center">
         ${fixture.time?`<span style="font-size:11px;color:var(--muted2);background:var(--surface2);padding:2px 8px;border-radius:8px">🕐 ${fixture.time}</span>`:''}
         ${fixture.date?`<span style="font-size:11px;color:var(--muted2);background:var(--surface2);padding:2px 8px;border-radius:8px">📅 ${fixture.date}</span>`:''}
+        ${fixture.manual?`<span title="Agregado a mano" style="font-size:11px;color:var(--accent);background:rgba(126,217,87,.1);padding:2px 8px;border-radius:8px">✍️ manual</span>
+        <button onclick="event.stopPropagation();deleteManualFixture('${fixture.id}')" title="Quitar este partido manual" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:var(--font-body);transition:.15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:''}
         <button id="fx-btn-${idx}" onclick="event.stopPropagation();toggleFxCard(${idx})"
           style="background:none;border:1px solid var(--border);color:var(--muted2);font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:var(--font-body);transition:.15s"
           onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'"
@@ -4534,6 +4547,135 @@ function normalizeFixture(row) {
   return { date: date || 'Sin fecha', league: league || 'Sin liga', home, away, time: time || '' };
 }
 
+// ══════════════════════════════════════════════════════════════
+//  PARTIDOS AGREGADOS A MANO (con cuotas propias opcionales)
+//  Para cuando football-data.co.uk no trae un partido, o está caída, cada
+//  persona puede meter el partido y sus propias cuotas (de cualquier
+//  mercado, no solo 1X2/goles) buscando liga/equipos en desplegables --
+//  nunca escribiendo nombres a mano, para que calcen con el historial.
+// ══════════════════════════════════════════════════════════════
+function mergeManualFixtures(baseFixtures) {
+  return [...STATE.manualFixtures, ...(baseFixtures || [])];
+}
+
+function persistManualFixtures() {
+  try { localStorage.setItem('fsp_manual_fixtures', JSON.stringify(STATE.manualFixtures)); } catch (e) {}
+}
+
+const MANUAL_ODDS_FIELDS = [
+  'mfH', 'mfD', 'mfA', 'mfOver25', 'mfUnder25',
+  'mfCornersOver', 'mfCornersUnder', 'mfCardsOver', 'mfCardsUnder',
+  'mfShotsOnOver', 'mfShotsOnUnder', 'mfShotsOver', 'mfShotsUnder',
+  'mfFoulsOver', 'mfFoulsUnder'
+];
+
+function mfOnLeagueChange() {
+  const league = document.getElementById('mfLeague').value;
+  const teams = getTeams(league).length ? getTeams(league) : getTeams('');
+  const opts = '<option value="">Selecciona...</option>' + teams.map(t => `<option value="${t.replace(/"/g, '&quot;')}">${t}</option>`).join('');
+  document.getElementById('mfHome').innerHTML = opts;
+  document.getElementById('mfAway').innerHTML = opts;
+}
+
+function openManualFixtureModal() {
+  const leagues = getLeagues().filter(l => l !== 'all');
+  const oddsRow = (label, ids, placeholders) => `<tr>
+    <td style="padding:5px 4px;font-size:11px;color:var(--muted2);white-space:nowrap">${label}</td>
+    ${ids.map((id, i) => `<td style="padding:3px"><input type="number" step="0.01" min="1.01" id="${id}" placeholder="${placeholders[i]}" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 7px;color:var(--text);font-family:var(--font-body);font-size:12px"></td>`).join('')}
+  </tr>`;
+
+  document.getElementById('matchModalBox').innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">➕ Agregar partido a mano</div>
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px">Busca el partido, tú pones las cuotas</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label style="font-size:11px;color:var(--muted)">Liga</label>
+        <select id="mfLeague" class="filter-select" style="width:100%;margin-top:3px" onchange="mfOnLeagueChange()">
+          ${leagues.map(l => `<option value="${l.replace(/"/g, '&quot;')}">${l}</option>`).join('')}
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label style="font-size:11px;color:var(--muted)">Local</label><select id="mfHome" class="filter-select" style="width:100%;margin-top:3px"></select></div>
+        <div><label style="font-size:11px;color:var(--muted)">Visitante</label><select id="mfAway" class="filter-select" style="width:100%;margin-top:3px"></select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label style="font-size:11px;color:var(--muted)">Fecha</label><input type="date" id="mfDate" style="width:100%;margin-top:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:var(--font-body);font-size:12px"></div>
+        <div><label style="font-size:11px;color:var(--muted)">Hora</label><input type="time" id="mfTime" style="width:100%;margin-top:3px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:var(--font-body);font-size:12px"></div>
+      </div>
+
+      <div style="font-size:11px;font-weight:700;color:var(--text);margin-top:6px">Cuotas (opcional — deja en blanco lo que no tengas)</div>
+      <table style="width:100%;border-collapse:collapse">
+        ${oddsRow('1X2', ['mfH', 'mfD', 'mfA'], ['Local', 'Empate', 'Visit.'])}
+        ${oddsRow('Goles O/U 2.5', ['mfOver25', 'mfUnder25'], ['Más 2.5', 'Menos 2.5'])}
+        ${oddsRow('Corners O/U 9.5', ['mfCornersOver', 'mfCornersUnder'], ['Más 9.5', 'Menos 9.5'])}
+        ${oddsRow('Tarjetas O/U 3.5', ['mfCardsOver', 'mfCardsUnder'], ['Más 3.5', 'Menos 3.5'])}
+        ${oddsRow('Tiros a puerta O/U 8.5', ['mfShotsOnOver', 'mfShotsOnUnder'], ['Más 8.5', 'Menos 8.5'])}
+        ${oddsRow('Tiros O/U 23.5', ['mfShotsOver', 'mfShotsUnder'], ['Más 23.5', 'Menos 23.5'])}
+        ${oddsRow('Faltas O/U 21.5', ['mfFoulsOver', 'mfFoulsUnder'], ['Más 21.5', 'Menos 21.5'])}
+      </table>
+    </div>
+
+    <div style="position:sticky;bottom:-22px;margin:14px -22px -22px;padding:12px 22px 22px;background:var(--surface);border-top:1px solid var(--border2)">
+      <button class="combo-btn-primary" style="width:100%" onclick="addManualFixture()">➕ Agregar partido</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">El modal se queda abierto para que puedas seguir agregando más partidos.</div>
+    </div>`;
+  document.getElementById('matchModal').style.display = 'flex';
+  document.getElementById('mfLeague').value = leagues[0] || '';
+  mfOnLeagueChange();
+  document.getElementById('mfDate').value = new Date().toISOString().slice(0, 10);
+}
+
+function addManualFixture() {
+  const league = document.getElementById('mfLeague').value;
+  const home   = document.getElementById('mfHome').value;
+  const away   = document.getElementById('mfAway').value;
+  const date   = document.getElementById('mfDate').value;
+  const time   = document.getElementById('mfTime').value;
+  if (!home || !away) { showToast('❌ Selecciona equipo local y visitante'); return; }
+  if (home === away) { showToast('❌ El local y el visitante no pueden ser el mismo equipo'); return; }
+
+  const num = id => { const v = parseFloat(document.getElementById(id).value); return (!isNaN(v) && v > 1) ? v : null; };
+  const odds = {
+    h: num('mfH'), d: num('mfD'), a: num('mfA'),
+    over25: num('mfOver25'), under25: num('mfUnder25'),
+    cornersOver: num('mfCornersOver'), cornersUnder: num('mfCornersUnder'),
+    cardsOver: num('mfCardsOver'), cardsUnder: num('mfCardsUnder'),
+    shotsOnOver: num('mfShotsOnOver'), shotsOnUnder: num('mfShotsOnUnder'),
+    shotsOver: num('mfShotsOver'), shotsUnder: num('mfShotsUnder'),
+    foulsOver: num('mfFoulsOver'), foulsUnder: num('mfFoulsUnder')
+  };
+  const hasAnyOdds = Object.values(odds).some(v => v != null);
+
+  const fixture = {
+    id: 'manual_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    date: date || 'Sin fecha', league, home, away, time: time || '',
+    odds: hasAnyOdds ? odds : null,
+    manual: true
+  };
+
+  STATE.manualFixtures.unshift(fixture);
+  persistManualFixtures();
+  STATE.fixtures = mergeManualFixtures(STATE.fixtures.filter(f => !f.manual));
+  updateFixtureBadge();
+  showToast(`✅ ${home} vs ${away} agregado`);
+  renderFixturePageV9();
+
+  MANUAL_ODDS_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  document.getElementById('mfHome').value = '';
+  document.getElementById('mfAway').value = '';
+}
+
+function deleteManualFixture(id) {
+  STATE.manualFixtures = STATE.manualFixtures.filter(f => f.id !== id);
+  persistManualFixtures();
+  STATE.fixtures = STATE.fixtures.filter(f => f.id !== id);
+  updateFixtureBadge();
+  showToast('Partido manual eliminado');
+  renderFixturePageV9();
+}
+
 function loadFixturesExcel(input) {
   const file = input.files[0];
   if (!file) return;
@@ -4558,8 +4700,8 @@ function loadFixturesExcel(input) {
         seen.add(key);
         return true;
       });
-      STATE.fixtures = fixtures;
       localStorage.setItem('fsp_fixtures', JSON.stringify(fixtures));
+      STATE.fixtures = mergeManualFixtures(fixtures);
       showToast(`✅ ${fixtures.length} partidos cargados desde ${file.name}`);
       updateFixtureBadge();
       renderFixturePageV9();
@@ -4583,8 +4725,8 @@ function loadFixturesJson(input) {
       const arr = Array.isArray(data) ? data : data.fixtures || data.matches || [];
       const fixtures = arr.map(normalizeFixture).filter(Boolean);
       if (!fixtures.length) throw new Error('Formato JSON inválido o sin partidos.');
-      STATE.fixtures = fixtures;
       localStorage.setItem('fsp_fixtures', JSON.stringify(fixtures));
+      STATE.fixtures = mergeManualFixtures(fixtures);
       showToast(`✅ ${fixtures.length} partidos cargados`);
       updateFixtureBadge();
       renderFixturePageV9();
@@ -4624,8 +4766,8 @@ async function loadFixturesFromMirror() {
         : `<div style="color:var(--accent)">✓ ${fixtures.length} partidos recibidos</div>`;
     }
 
-    STATE.fixtures = fixtures;
     localStorage.setItem('fsp_fixtures', JSON.stringify(fixtures));
+    STATE.fixtures = mergeManualFixtures(fixtures);
     showToast(`✅ ${fixtures.length} próximos partidos cargados`);
     updateFixtureBadge();
     renderFixturePageV9();
@@ -4638,9 +4780,11 @@ async function loadFixturesFromMirror() {
 }
 
 function clearFixtures() {
-  if (!confirm('¿Eliminar todos los próximos partidos cargados?')) return;
+  if (!confirm('¿Eliminar todos los próximos partidos cargados (incluidos los que agregaste a mano)?')) return;
   STATE.fixtures = [];
+  STATE.manualFixtures = [];
   localStorage.removeItem('fsp_fixtures');
+  localStorage.removeItem('fsp_manual_fixtures');
   updateFixtureBadge();
   renderFixturePageV9();
   showToast('Fixtures eliminados');
@@ -5131,7 +5275,19 @@ function oddsPicksForFixture(f) {
     { label: '1X2 — Empate',          odds: f.odds.d, market: '1x2' },
     { label: '1X2 — Gana ' + f.away, odds: f.odds.a, market: '1x2' },
     { label: 'Over 2.5 goles',        odds: f.odds.over25, market: 'goals' },
-    { label: 'Under 2.5 goles',       odds: f.odds.under25, market: 'goals' }
+    { label: 'Under 2.5 goles',       odds: f.odds.under25, market: 'goals' },
+    // Estos mercados football-data.co.uk no los trae — solo aparecen con
+    // cuota real cuando alguien los agregó a mano en "Agregar partido a mano".
+    { label: 'Corners — Más de 9.5 córners',    odds: f.odds.cornersOver,  market: 'corners' },
+    { label: 'Corners — Menos de 9.5 córners',  odds: f.odds.cornersUnder, market: 'corners' },
+    { label: 'Tarjetas — Más de 3.5 amarillas', odds: f.odds.cardsOver,    market: 'cards' },
+    { label: 'Tarjetas — Menos de 3.5 amarillas', odds: f.odds.cardsUnder, market: 'cards' },
+    { label: 'Tiros a puerta — Más de 8.5',     odds: f.odds.shotsOnOver,  market: 'shotsOn' },
+    { label: 'Tiros a puerta — Menos de 8.5',   odds: f.odds.shotsOnUnder, market: 'shotsOn' },
+    { label: 'Tiros — Más de 23.5',             odds: f.odds.shotsOver,    market: 'shots' },
+    { label: 'Tiros — Menos de 23.5',           odds: f.odds.shotsUnder,   market: 'shots' },
+    { label: 'Faltas — Más de 21.5',            odds: f.odds.foulsOver,    market: 'fouls' },
+    { label: 'Faltas — Menos de 21.5',          odds: f.odds.foulsUnder,   market: 'fouls' }
   ]
     .filter(c => c.odds != null && c.odds > 1)
     .map(c => ({ ...c, prob: 1 / c.odds, hasRealOdds: true }));
@@ -5201,7 +5357,12 @@ function bestPickForFixture(f) {
 function pickForFixtureByMarket(f, market) {
   const all = [...oddsPicksForFixture(f), ...statPicksForFixture(f)].filter(p => p.market === market);
   if (!all.length) return null;
-  return all.reduce((a, b) => (b.prob > a.prob ? b : a));
+  // Si alguien metió una cuota real a mano para este partido/mercado (por
+  // ejemplo corners, que football-data.co.uk no trae), esa cuota real
+  // siempre gana sobre la estimación estadística del mismo mercado.
+  const real = all.filter(p => p.hasRealOdds);
+  const pool = real.length ? real : all;
+  return pool.reduce((a, b) => (b.prob > a.prob ? b : a));
 }
 
 function setComboMarketFilter(market) {
@@ -5246,21 +5407,17 @@ function renderBestCombos(fixtures) {
   // partido para ESE mercado únicamente.
   const topList = picks.slice(0, marketFilter === 'all' ? 5 : 10);
   const MIN_COMBO_ODDS = 1.40;
-  // En "Todos" el mejor pick por partido puede salir de un mercado sin
-  // cuota real (ahora hay 5 de esos) — pero las combinadas de "Todos" son
-  // el modo por defecto, con dinero real de verdad, así que ahí SIEMPRE se
-  // restringe a picks con cuota real (como siempre fue), sin importar cuál
-  // haya quedado de primero en el ranking. Al filtrar a un solo mercado, en
-  // cambio, todas las picks de ese mercado comparten el mismo hasRealOdds
-  // (1x2/goles siempre traen cuota real; los demás nunca la traen), así que
-  // ahí sí se puede mirar solo la primera para saber el modo de la tarjeta.
-  const hasRealOdds = marketFilter === 'all' ? true : picks[0].pick.hasRealOdds;
-  const comboPool = marketFilter === 'all' ? picks.filter(p => p.pick.hasRealOdds) : picks;
-  // No se usan picks "demasiado seguros" cuando sí hay cuota real — por
-  // debajo de 1.40 el pago no compensa el espacio que ocupan en la
-  // combinada. Los mercados sin cuota real no tienen ese concepto: se
-  // arma con el pool completo ordenado por probabilidad.
-  const comboEligible = (hasRealOdds ? comboPool.filter(p => p.pick.odds >= MIN_COMBO_ODDS) : comboPool).slice(0, 8);
+  // El pool de picks puede venir mezclado: unos partidos con cuota real
+  // (de football-data.co.uk para 1X2/goles, o metida a mano para cualquier
+  // mercado) y otros solo con estimación estadística. Regla general: si hay
+  // suficientes picks con cuota real (mínimo 2, lo que toma una combinada
+  // de a 2), la combinada se arma SOLO con esos, dinero real de verdad. Si
+  // no alcanzan, se cae al pool estadístico completo, marcado como
+  // "estimada" — nunca se mezclan cuota real con estimación en la misma
+  // combinada.
+  const realPicks = picks.filter(p => p.pick.hasRealOdds && p.pick.odds >= MIN_COMBO_ODDS);
+  const hasRealOdds = realPicks.length >= 2;
+  const comboEligible = (hasRealOdds ? realPicks : picks).slice(0, 8);
 
   const row = (p, i) => `<div class="fx-stat" style="grid-template-columns:24px 1fr auto;border-top:${i?'1px solid var(--border)':'none'}">
       <span style="font-family:var(--font-mono);color:var(--muted);font-size:11px">${i+1}</span>
