@@ -1430,7 +1430,13 @@ print(f'Listo: {len(matches)} partidos exportados a matches.json')</div>
         <div id="fdcoFixturesStatus" style="margin-top:10px;font-size:12px;line-height:1.7"></div>
         <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
           <div style="font-size:11px;color:var(--muted);margin-bottom:8px">¿La fuente automática no trae un partido, o está caída? Agrégalo tú mismo buscando liga y equipos, con tus propias cuotas.</div>
-          <button class="combo-btn-secondary" onclick="openManualFixtureModal()">➕ Agregar partido a mano</button>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="combo-btn-secondary" onclick="openManualFixtureModal()">➕ Agregar partido a mano</button>
+            <button class="combo-btn-secondary" onclick="exportManualFixturesExcel()">⬇️ Descargar Excel</button>
+            <input type="file" id="manualFixturesXlsx" accept=".xlsx,.xls" onchange="importManualFixturesExcel(this)" style="display:none">
+            <button class="combo-btn-secondary" onclick="document.getElementById('manualFixturesXlsx').click()">⬆️ Cargar Excel</button>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:6px">Descarga tus partidos manuales a Excel para editar cuotas ahí y volver a cargarlos, o edítalos directo en la app con el ✏️ de cada partido.</div>
         </div>
       </div>
       <div class="chart-grid-2" style="margin-bottom:16px">
@@ -2406,6 +2412,7 @@ function renderFixtureCardV8(fixture, idx) {
         ${fixture.time?`<span style="font-size:11px;color:var(--muted2);background:var(--surface2);padding:2px 8px;border-radius:8px">🕐 ${fixture.time}</span>`:''}
         ${fixture.date?`<span style="font-size:11px;color:var(--muted2);background:var(--surface2);padding:2px 8px;border-radius:8px">📅 ${fixture.date}</span>`:''}
         ${fixture.manual?`<span title="Agregado a mano" style="font-size:11px;color:var(--accent);background:rgba(126,217,87,.1);padding:2px 8px;border-radius:8px">✍️ manual</span>
+        <button onclick="event.stopPropagation();openManualFixtureModal('${fixture.id}')" title="Editar este partido y sus cuotas" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:var(--font-body);transition:.15s" onmouseover="this.style.borderColor='var(--accent2)';this.style.color='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">✏️</button>
         <button onclick="event.stopPropagation();deleteManualFixture('${fixture.id}')" title="Quitar este partido manual" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:var(--font-body);transition:.15s" onmouseover="this.style.borderColor='var(--red)';this.style.color='var(--red)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--muted)'">🗑️</button>`:''}
         <button id="fx-btn-${idx}" onclick="event.stopPropagation();toggleFxCard(${idx})"
           style="background:none;border:1px solid var(--border);color:var(--muted2);font-size:11px;padding:3px 10px;border-radius:6px;cursor:pointer;font-family:var(--font-body);transition:.15s"
@@ -4577,7 +4584,22 @@ function mfOnLeagueChange() {
   document.getElementById('mfAway').innerHTML = opts;
 }
 
-function openManualFixtureModal() {
+// Cuando se está editando un partido manual existente en vez de agregar
+// uno nuevo, aquí queda el id -- addManualFixture() lo revisa para decidir
+// si crea o actualiza.
+let MF_EDITING_ID = null;
+const MF_ODDS_KEY_BY_FIELD = {
+  mfH: 'h', mfD: 'd', mfA: 'a', mfOver25: 'over25', mfUnder25: 'under25',
+  mfCornersOver: 'cornersOver', mfCornersUnder: 'cornersUnder',
+  mfCardsOver: 'cardsOver', mfCardsUnder: 'cardsUnder',
+  mfShotsOnOver: 'shotsOnOver', mfShotsOnUnder: 'shotsOnUnder',
+  mfShotsOver: 'shotsOver', mfShotsUnder: 'shotsUnder',
+  mfFoulsOver: 'foulsOver', mfFoulsUnder: 'foulsUnder'
+};
+
+function openManualFixtureModal(editId) {
+  const editing = editId ? STATE.manualFixtures.find(f => f.id === editId) : null;
+  MF_EDITING_ID = editing ? editing.id : null;
   const leagues = getLeagues().filter(l => l !== 'all');
   const oddsRow = (label, ids, placeholders) => `<tr>
     <td style="padding:5px 4px;font-size:11px;color:var(--muted2);white-space:nowrap">${label}</td>
@@ -4586,8 +4608,8 @@ function openManualFixtureModal() {
 
   document.getElementById('matchModalBox').innerHTML = `
     <button class="modal-close" onclick="closeModal()">✕</button>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">➕ Agregar partido a mano</div>
-    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px">Busca el partido, tú pones las cuotas</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">${editing ? '✏️ Editar partido' : '➕ Agregar partido a mano'}</div>
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px">${editing ? 'Cambia lo que necesites y guarda' : 'Busca el partido, tú pones las cuotas'}</div>
 
     <div style="display:flex;flex-direction:column;gap:10px">
       <div>
@@ -4618,13 +4640,24 @@ function openManualFixtureModal() {
     </div>
 
     <div style="position:sticky;bottom:-22px;margin:14px -22px -22px;padding:12px 22px 22px;background:var(--surface);border-top:1px solid var(--border2)">
-      <button class="combo-btn-primary" style="width:100%" onclick="addManualFixture()">➕ Agregar partido</button>
-      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">El modal se queda abierto para que puedas seguir agregando más partidos.</div>
+      <button class="combo-btn-primary" style="width:100%" onclick="addManualFixture()">${editing ? '💾 Guardar cambios' : '➕ Agregar partido'}</button>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center">${editing ? 'Vas a actualizar este partido — el modal se cierra al guardar.' : 'El modal se queda abierto para que puedas seguir agregando más partidos.'}</div>
     </div>`;
   document.getElementById('matchModal').style.display = 'flex';
-  document.getElementById('mfLeague').value = leagues[0] || '';
+  document.getElementById('mfLeague').value = editing ? editing.league : (leagues[0] || '');
   mfOnLeagueChange();
-  document.getElementById('mfDate').value = new Date().toISOString().slice(0, 10);
+  if (editing) {
+    document.getElementById('mfHome').value = editing.home;
+    document.getElementById('mfAway').value = editing.away;
+    document.getElementById('mfDate').value = editing.date && editing.date !== 'Sin fecha' ? editing.date : '';
+    document.getElementById('mfTime').value = editing.time || '';
+    Object.entries(MF_ODDS_KEY_BY_FIELD).forEach(([fieldId, oddsKey]) => {
+      const el = document.getElementById(fieldId);
+      if (el && editing.odds && editing.odds[oddsKey] != null) el.value = editing.odds[oddsKey];
+    });
+  } else {
+    document.getElementById('mfDate').value = new Date().toISOString().slice(0, 10);
+  }
 }
 
 function addManualFixture() {
@@ -4647,6 +4680,24 @@ function addManualFixture() {
     foulsOver: num('mfFoulsOver'), foulsUnder: num('mfFoulsUnder')
   };
   const hasAnyOdds = Object.values(odds).some(v => v != null);
+
+  if (MF_EDITING_ID) {
+    const idx = STATE.manualFixtures.findIndex(f => f.id === MF_EDITING_ID);
+    if (idx === -1) { showToast('❌ Ese partido ya no existe'); MF_EDITING_ID = null; closeModal(); return; }
+    STATE.manualFixtures[idx] = {
+      ...STATE.manualFixtures[idx],
+      date: date || 'Sin fecha', league, home, away, time: time || '',
+      odds: hasAnyOdds ? odds : null
+    };
+    persistManualFixtures();
+    STATE.fixtures = mergeManualFixtures(STATE.fixtures.filter(f => !f.manual));
+    updateFixtureBadge();
+    showToast(`✅ ${home} vs ${away} actualizado`);
+    renderFixturePageV9();
+    MF_EDITING_ID = null;
+    closeModal();
+    return;
+  }
 
   const fixture = {
     id: 'manual_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
@@ -4674,6 +4725,92 @@ function deleteManualFixture(id) {
   updateFixtureBadge();
   showToast('Partido manual eliminado');
   renderFixturePageV9();
+}
+
+// Columnas del Excel de partidos manuales -- mismo archivo sirve para
+// descargar (auditar/editar en Excel) y para volver a cargar.
+const MANUAL_XLSX_COLUMNS = [
+  ['HomeTeam', 'home'], ['AwayTeam', 'away'], ['League', 'league'], ['Date', 'date'], ['Time', 'time'],
+  ['OddsH', 'h'], ['OddsD', 'd'], ['OddsA', 'a'], ['Over25', 'over25'], ['Under25', 'under25'],
+  ['CornersOver', 'cornersOver'], ['CornersUnder', 'cornersUnder'],
+  ['CardsOver', 'cardsOver'], ['CardsUnder', 'cardsUnder'],
+  ['ShotsOnOver', 'shotsOnOver'], ['ShotsOnUnder', 'shotsOnUnder'],
+  ['ShotsOver', 'shotsOver'], ['ShotsUnder', 'shotsUnder'],
+  ['FoulsOver', 'foulsOver'], ['FoulsUnder', 'foulsUnder']
+];
+
+function exportManualFixturesExcel() {
+  if (!STATE.manualFixtures.length) { showToast('No hay partidos manuales para descargar'); return; }
+  const rows = STATE.manualFixtures.map(f => {
+    const row = {};
+    MANUAL_XLSX_COLUMNS.forEach(([col, key]) => {
+      if (['home', 'away', 'league', 'date', 'time'].includes(key)) row[col] = f[key] || '';
+      else row[col] = f.odds && f.odds[key] != null ? f.odds[key] : '';
+    });
+    return row;
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = MANUAL_XLSX_COLUMNS.map(([col]) => ({ wch: Math.max(col.length, 12) }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'partidos_manuales');
+  const filename = `partidos_manuales_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  XLSX.writeFile(wb, filename);
+  showToast('✅ Excel descargado: ' + filename);
+}
+
+// Vuelve a cargar el Excel de partidos manuales -- REEMPLAZA todos los que
+// ya tenías (mismo comportamiento que el resto de cargas de Excel en la
+// app), así que sirve para editar cuotas: descargas, editas en Excel,
+// vuelves a subir.
+function importManualFixturesExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (STATE.manualFixtures.length && !confirm('Esto reemplaza todos los partidos manuales que ya tienes cargados por los del Excel. ¿Continuar?')) {
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', defval: '' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const num = v => { const n = parseFloat(v); return (!isNaN(n) && n > 1) ? n : null; };
+
+      const parsed = raw.map(r => {
+        const home = String(r.HomeTeam || r.Home || '').trim();
+        const away = String(r.AwayTeam || r.Away || '').trim();
+        if (!home || !away) return null;
+        const odds = {};
+        MANUAL_XLSX_COLUMNS.forEach(([col, key]) => {
+          if (['home', 'away', 'league', 'date', 'time'].includes(key)) return;
+          odds[key] = num(r[col]);
+        });
+        const hasAnyOdds = Object.values(odds).some(v => v != null);
+        return {
+          id: 'manual_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+          date: String(r.Date || '').trim() || 'Sin fecha',
+          league: String(r.League || '').trim() || 'Sin liga',
+          home, away, time: String(r.Time || '').trim(),
+          odds: hasAnyOdds ? odds : null,
+          manual: true
+        };
+      }).filter(Boolean);
+
+      if (!parsed.length) throw new Error('No se encontraron partidos válidos. Verifica columnas HomeTeam/AwayTeam.');
+
+      STATE.manualFixtures = parsed;
+      persistManualFixtures();
+      STATE.fixtures = mergeManualFixtures(STATE.fixtures.filter(f => !f.manual));
+      updateFixtureBadge();
+      showToast(`✅ ${parsed.length} partidos manuales cargados desde ${file.name}`);
+      renderFixturePageV9();
+    } catch (err) {
+      showToast('❌ ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  input.value = '';
 }
 
 function loadFixturesExcel(input) {
