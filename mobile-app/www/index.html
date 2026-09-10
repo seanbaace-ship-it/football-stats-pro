@@ -4739,7 +4739,40 @@ const MANUAL_XLSX_COLUMNS = [
   ['FoulsOver', 'foulsOver'], ['FoulsUnder', 'foulsUnder']
 ];
 
-function exportManualFixturesExcel() {
+// Descargar un archivo desde dentro del APK no funciona igual que en un
+// navegador: XLSX.writeFile() arma un <a download> con una blob: URL y le
+// hace click solo -- eso lo soporta Chrome/Firefox de escritorio y de
+// celular, pero el WebView que usa Capacitor (el que corre el APK) casi
+// siempre ignora el atributo "download" en silencio, así que el archivo
+// nunca se guarda y no pasa nada visible. Adentro del APK, en cambio, se
+// escribe el archivo con el plugin Filesystem y se abre el panel nativo de
+// "Compartir/Guardar" con el plugin Share, para que el usuario elija a
+// dónde mandarlo (Archivos, Drive, WhatsApp, etc). Fuera del APK (la web
+// normal) se sigue usando la descarga de navegador de siempre.
+async function saveWorkbookFile(wb, filename) {
+  const cap = window.Capacitor;
+  const isNative = cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform();
+  if (!isNative) {
+    XLSX.writeFile(wb, filename);
+    showToast('✅ Excel descargado: ' + filename);
+    return;
+  }
+  try {
+    const { Filesystem } = cap.Plugins;
+    const base64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const result = await Filesystem.writeFile({ path: filename, data: base64, directory: 'CACHE' });
+    const Share = cap.Plugins.Share;
+    if (Share && Share.share) {
+      await Share.share({ title: filename, url: result.uri, dialogTitle: 'Guardar o compartir ' + filename });
+    } else {
+      showToast('✅ Archivo guardado: ' + filename);
+    }
+  } catch (e) {
+    showToast('❌ No se pudo guardar el archivo: ' + e.message);
+  }
+}
+
+async function exportManualFixturesExcel() {
   if (!STATE.manualFixtures.length) { showToast('No hay partidos manuales para descargar'); return; }
   const rows = STATE.manualFixtures.map(f => {
     const row = {};
@@ -4754,8 +4787,7 @@ function exportManualFixturesExcel() {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'partidos_manuales');
   const filename = `partidos_manuales_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(wb, filename);
-  showToast('✅ Excel descargado: ' + filename);
+  await saveWorkbookFile(wb, filename);
 }
 
 // Vuelve a cargar el Excel de partidos manuales -- REEMPLAZA todos los que
@@ -6785,7 +6817,7 @@ function resetLocalAdmin() {
 })();
 
 // ── Exportar Top Estadísticas a Excel ──────────────────────────
-function exportTopStatsExcel() {
+async function exportTopStatsExcel() {
   // Recoger datos (misma lógica que renderGlobalTop5)
   const filterLeague = STATE.fixtureFilterLeague || '';
   const filterDate   = STATE.fixtureFilterDate   || '';
@@ -6936,8 +6968,7 @@ function exportTopStatsExcel() {
   const filterTag = filterLeague ? '_' + filterLeague.replace(/\s+/g,'-') : '';
   const filename  = `Top_Estadisticas${filterTag}_${timestamp}.xlsx`;
 
-  XLSX.writeFile(wb, filename);
-  showToast('✅ Excel descargado: ' + filename);
+  await saveWorkbookFile(wb, filename);
 }
 
 document.addEventListener('DOMContentLoaded', function() {
