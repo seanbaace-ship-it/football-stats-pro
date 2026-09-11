@@ -280,7 +280,66 @@
   --green:#7ed957; --red:#ff8066; --amber:#ffc94d; --blue:#4dabf7;
   --font-display:'Aptos Narrow','Nunito',sans-serif;
     --font-body:'Aptos Narrow','Nunito Sans',sans-serif;
+  --chart-hue-a:160; --chart-hue-b:285;
 }
+
+/* ============================================================
+   TEMAS — cuatro pieles sobre la misma estructura. El usuario
+   elige la suya desde el menú de usuario (🎨 Tema); se guarda en
+   localStorage y persiste entre sesiones. Como el resto del CSS
+   ya lee var(--bg), var(--accent), etc. en vez de colores fijos,
+   cada tema solo tiene que redefinir estas mismas variables —
+   nada más en la hoja de estilos necesita tocarse.
+   Ver FSPTema en el bloque de scripts para la lógica del selector.
+   ============================================================ */
+[data-theme="clasico"]{
+  --bg:#0a1410; --surface:#101f18; --surface2:#16281f;
+  --border:#213c2c; --border2:#2f5540;
+  --accent:#7ed957; --accent2:#4dabf7; --accent3:#ff8066;
+  --text:#eef5ee; --muted:#7a9686; --muted2:#9fb8a8;
+  --card-bg:rgba(16,31,24,0.9);
+  --green:#7ed957; --red:#ff8066; --amber:#ffc94d; --blue:#4dabf7;
+  --font-display:'Aptos Narrow','Nunito',sans-serif;
+  --font-body:'Aptos Narrow','Nunito Sans',sans-serif;
+  --chart-hue-a:160; --chart-hue-b:285;
+}
+[data-theme="azul"]{
+  --bg:#0a101c; --surface:#101a2b; --surface2:#162236;
+  --border:#213249; --border2:#2f4766;
+  --accent:#4dabf7; --accent2:#5ce1e6; --accent3:#ff8066;
+  --text:#eef1f8; --muted:#7d8aa5; --muted2:#a3b0c9;
+  --card-bg:rgba(16,26,43,0.9);
+  --green:#4dabf7; --red:#ff8066; --amber:#ffc94d; --blue:#5ce1e6;
+  --font-display:'Aptos Narrow','Nunito',sans-serif;
+  --font-body:'Aptos Narrow','Nunito Sans',sans-serif;
+  --chart-hue-a:200; --chart-hue-b:255;
+}
+[data-theme="papel"]{
+  --bg:#f1f2f6; --surface:#ffffff; --surface2:#e7e9ef;
+  --border:#1a2340; --border2:#b7bccc;
+  --accent:#ec3013; --accent2:#ae1800; --accent3:#d97706;
+  --text:#1a2340; --muted:#5a6684; --muted2:#3a4566;
+  --card-bg:rgba(255,255,255,0.95);
+  --green:#1a2340; --red:#ec3013; --amber:#d97706; --blue:#2563eb;
+  --font-display:'Archivo',sans-serif;
+  --font-body:'Archivo',sans-serif;
+  --chart-hue-a:210; --chart-hue-b:250;
+}
+[data-theme="telemetria"]{
+  --bg:#0d1224; --surface:#141b33; --surface2:#111830;
+  --border:#2a3556; --border2:#3d4a72;
+  --accent:#b3f000; --accent2:#8b9ac2; --accent3:#ff8066;
+  --text:#dfe6f5; --muted:#6f7fa8; --muted2:#8b9ac2;
+  --card-bg:rgba(20,27,51,0.9);
+  --green:#b3f000; --red:#ff8066; --amber:#ffc94d; --blue:#8b9ac2;
+  --font-display:'Saira Condensed',sans-serif;
+  --font-body:'Space Mono',monospace;
+  --chart-hue-a:200; --chart-hue-b:255;
+}
+/* Los temas planos (papel/telemetría) no llevan sombra ni degradado */
+[data-theme="papel"] .chart-box, [data-theme="telemetria"] .chart-box,
+[data-theme="papel"] .kpi-card, [data-theme="telemetria"] .kpi-card,
+[data-theme="papel"] .td-card, [data-theme="telemetria"] .td-card{box-shadow:none}
 
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:12px;line-height:1.5;overflow-x:hidden}
@@ -491,7 +550,7 @@ code{background:rgba(126,217,87,.08);color:var(--accent);padding:1px 6px;border-
   .sidebar.open{transform:translateX(0)}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
   .chart-grid-2,.chart-grid-3{grid-template-columns:1fr}
-  .global-search-wrap,.btn-theme,.btn-export,.btn-save,.btn-upload,.btn-update{display:none !important}
+  .global-search-wrap,.btn-export,.btn-save,.btn-upload,.btn-update{display:none !important}
   .header-divider,.data-status{display:none !important}
   #userBadgeName{display:none !important}
   .user-badge{padding:5px;border:none}
@@ -610,21 +669,14 @@ code{background:rgba(126,217,87,.08);color:var(--accent);padding:1px 6px;border-
         Búsqueda global, Filtro fechas, Heatmap, Tendencias
 ════════════════════════════════════════════════════════════ */
 
-/* Light mode */
-body.light-mode {
-  --bg:#f0f4f8; --surface:#ffffff; --surface2:#e8edf3;
-  --border:#d1dbe8; --border2:#b0bfd0;
-  --text:#0f1e32; --muted:#7a9686; --muted2:#3d5a80;
-  --card-bg:rgba(255,255,255,0.95);
-  --green:#059669; --red:#dc2626; --amber:#d97706; --blue:#2563eb;
-}
-body.light-mode .header{background:rgba(240,244,248,.97)}
-body.light-mode .sidebar{background:#ffffff}
-body.light-mode .main-content-area{background:var(--bg)}
-
-/* Theme toggle button */
-.btn-theme{display:flex;align-items:center;gap:6px;background:none;border:1px solid var(--border);color:var(--muted2);font-family:var(--font-body);font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;transition:.2s}
-.btn-theme:hover{border-color:var(--border2);color:var(--text)}
+/* El header usa un fondo fijo (no var()) porque lleva vidrio esmerilado
+   sobre el color de fondo -- cada tema necesita su propia versión en rgba
+   para que el header no se quede con el verde original encima de un fondo
+   de otro color. */
+[data-theme="azul"] .header{background:rgba(10,16,28,.95)}
+[data-theme="papel"] .header{background:rgba(241,242,246,.97)}
+[data-theme="telemetria"] .header{background:rgba(13,18,36,.95)}
+[data-theme="papel"] .sidebar{background:#ffffff}
 
 /* Global search */
 .global-search-wrap{position:relative;flex:1;max-width:280px}
@@ -895,7 +947,6 @@ tr.fixture-expanded-row:hover td{background:transparent!important}
     <div class="user-avatar" id="userAvatar">?</div>
     <span id="userBadgeName">Usuario</span>
   </div>
-  <button class="btn-theme" id="themeBtn" onclick="toggleTheme()">&#127769; Oscuro</button>
   <button class="btn-export" onclick="exportDashboard()">&#8595; Exportar</button>
   <button class="btn-save" id="btnSave" onclick="saveToLocalFolder()" title="Guardar estadísticas en carpeta local">
     &#128190; Guardar
@@ -1558,7 +1609,6 @@ const LEAGUE_MAP = {
 // ═══════════════════════════════════════════════════════════════
 let STATE = {
   league: 'all', season: 'all', team: '', page: 'dashboard', matchPage: 0, matchCondition: '',
-  theme:        localStorage.getItem('fsp_theme') || 'dark',
   favorites:    JSON.parse(localStorage.getItem('fsp_favs')      || '[]'),
   quiniela:     JSON.parse(localStorage.getItem('fsp_quiniela')  || '{}'),
   alerts:       JSON.parse(localStorage.getItem('fsp_alerts')    || '[]'),
@@ -3139,11 +3189,100 @@ function renderAnalysis() {
 // ═══════════════════════════════════════════════════════════════
 
 
-// Apply saved theme on load
-if (STATE.theme === 'light') {
-  document.body.classList.add('light-mode');
-  const btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = '☀️ Claro';
+// ─── TEMAS — cuatro pieles, elegidas por el usuario ───────────
+// El CSS de cada tema (clasico/azul/papel/telemetria) ya está en el
+// bloque <style>; esto solo decide cuál aplicar (guardado en
+// localStorage), carga la tipografía que le falte al navegador, y avisa
+// a los gráficos para que se repinten con los colores nuevos.
+const FSPTema = (function () {
+  const TEMAS = [
+    { id: 'clasico',    nombre: 'Clásico',     desc: 'El verde de siempre' },
+    { id: 'azul',       nombre: 'Azul',        desc: 'Misma app, paleta fría' },
+    { id: 'papel',      nombre: 'Papel',       desc: 'Claro y plano' },
+    { id: 'telemetria', nombre: 'Telemetría',  desc: 'Oscuro, condensado' }
+  ];
+  const CLAVE = 'fsp_tema';
+  const POR_DEFECTO = 'clasico';
+  const FUENTES = {
+    papel:      'Archivo:wght@400;500;600;700;800;900',
+    telemetria: 'Saira:wght@400;600;700;800&family=Saira+Condensed:wght@600;700;800&family=Space+Mono:wght@400;700'
+  };
+  const cargadas = {};
+
+  function cargarFuente(tema) {
+    const spec = FUENTES[tema];
+    if (!spec || cargadas[tema]) return;
+    cargadas[tema] = true;
+    const l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=' + spec + '&display=swap';
+    document.head.appendChild(l);
+  }
+
+  function leerToken(nombre) {
+    return getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+  }
+
+  // Paleta de series para Chart.js, un matiz por liga repartido entre
+  // --chart-hue-a y --chart-hue-b del tema activo.
+  function paletaSeries(n) {
+    const a = parseFloat(leerToken('--chart-hue-a')) || 200;
+    const b = parseFloat(leerToken('--chart-hue-b')) || 255;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = n === 1 ? 0 : i / (n - 1);
+      out.push('hsla(' + Math.round(a + (b - a) * t) + ', 70%, 55%, .75)');
+    }
+    return out;
+  }
+
+  function aplicarDefectosChart() {
+    if (!window.Chart) return;
+    Chart.defaults.color = leerToken('--muted2');
+    Chart.defaults.borderColor = leerToken('--border');
+    Chart.defaults.font.family = leerToken('--font-body').replace(/['"]/g, '').split(',')[0] || 'sans-serif';
+  }
+
+  function aplicar(tema, repintar) {
+    if (!TEMAS.some(t => t.id === tema)) tema = POR_DEFECTO;
+    cargarFuente(tema);
+    document.documentElement.setAttribute('data-theme', tema);
+    try { localStorage.setItem(CLAVE, tema); } catch (e) {}
+    aplicarDefectosChart();
+    if (repintar !== false && STATE.page === 'dashboard') renderAll();
+  }
+
+  const guardado = (() => { try { return localStorage.getItem(CLAVE); } catch (e) { return null; } })();
+  aplicar(guardado || POR_DEFECTO, false);
+
+  return { TEMAS, aplicar, paletaSeries, actual: () => document.documentElement.getAttribute('data-theme') || POR_DEFECTO };
+})();
+
+const THEME_SWATCH_BG = {
+  clasico:    'linear-gradient(135deg,#7ed957,#0a1410)',
+  azul:       'linear-gradient(135deg,#4dabf7,#0a101c)',
+  papel:      'linear-gradient(135deg,#ec3013,#f1f2f6)',
+  telemetria: 'linear-gradient(135deg,#b3f000,#0d1224)'
+};
+function openThemePicker() {
+  const actual = FSPTema.actual();
+  const swatch = t => `<button onclick="FSPTema.aplicar('${t.id}');closeModal();showToast('🎨 Tema ${t.nombre} activado')"
+      style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px;border-radius:10px;cursor:pointer;font-family:var(--font-body);
+             background:${t.id===actual?'var(--surface2)':'none'};border:1px solid ${t.id===actual?'var(--accent)':'var(--border)'}"
+      onmouseover="this.style.borderColor='var(--border2)'" onmouseout="this.style.borderColor='${t.id===actual?'var(--accent)':'var(--border)'}'">
+    <span style="width:28px;height:28px;border-radius:50%;flex-shrink:0;background:${THEME_SWATCH_BG[t.id]};border:1px solid rgba(255,255,255,.15)"></span>
+    <span>
+      <div style="font-weight:700;color:var(--text);font-size:13px">${t.nombre}${t.id===actual?' <span style="color:var(--accent);font-size:11px">· activo</span>':''}</div>
+      <div style="font-size:11px;color:var(--muted)">${t.desc}</div>
+    </span>
+  </button>`;
+
+  document.getElementById('matchModalBox').innerHTML = `
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px">🎨 Elegir tema</div>
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:14px">Cómo quieres ver la app</div>
+    <div style="display:flex;flex-direction:column;gap:8px">${FSPTema.TEMAS.map(swatch).join('')}</div>`;
+  document.getElementById('matchModal').style.display = 'flex';
 }
 
 // ─── TOAST ───────────────────────────────────────────────────
@@ -3156,18 +3295,6 @@ function showToast(msg, duration = 2500) {
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(16px)'; t.style.transition = '.3s'; setTimeout(() => t.remove(), 300); }, duration);
-}
-
-// ─── THEME TOGGLE ────────────────────────────────────────────
-function toggleTheme() {
-  const isLight = document.body.classList.toggle('light-mode');
-  STATE.theme = isLight ? 'light' : 'dark';
-  localStorage.setItem('fsp_theme', STATE.theme);
-  const btn = document.getElementById('themeBtn');
-  if (btn) btn.textContent = isLight ? '☀️ Claro' : '🌙 Oscuro';
-  // Re-render charts with correct colors
-  if (STATE.page === 'dashboard') renderAll();
-  showToast(isLight ? '☀️ Modo claro activado' : '🌙 Modo oscuro activado');
 }
 
 // ─── GLOBAL SEARCH ───────────────────────────────────────────
@@ -6582,6 +6709,7 @@ function openUserMenu() {
     ${isAdmin?`<button onclick="closeUserMenu();openUserMgmt()" style="width:100%;text-align:left;background:none;border:none;color:var(--text);padding:8px 12px;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">👥 Gestionar usuarios</button>`:''}
     <button onclick="authChangePassword()" style="width:100%;text-align:left;background:none;border:none;color:var(--text);padding:8px 12px;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">🔑 Cambiar contraseña</button>
     <button onclick="closeUserMenu();openApiKeyModal()" style="width:100%;text-align:left;background:none;border:none;color:var(--text);padding:8px 12px;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">🤖 Configurar IA (Gemini)</button>
+    <button onclick="closeUserMenu();openThemePicker()" style="width:100%;text-align:left;background:none;border:none;color:var(--text);padding:8px 12px;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background='none'">🎨 Elegir tema</button>
     <hr style="border:none;border-top:1px solid var(--border);margin:6px 0">
     <button onclick="authLogout()" style="width:100%;text-align:left;background:none;border:none;color:var(--red);padding:8px 12px;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px" onmouseover="this.style.background='rgba(255,128,102,.08)'" onmouseout="this.style.background='none'">🚪 Cerrar sesión</button>
   `;
