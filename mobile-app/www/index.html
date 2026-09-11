@@ -336,10 +336,32 @@
   --font-body:'Space Mono',monospace;
   --chart-hue-a:200; --chart-hue-b:255;
 }
-/* Los temas planos (papel/telemetría) no llevan sombra ni degradado */
-[data-theme="papel"] .chart-box, [data-theme="telemetria"] .chart-box,
+/* Los temas planos (papel/telemetría) no llevan sombra ni degradado en
+   las tarjetas simples -- pero SÍ mantienen el relieve 3D de las gráficas
+   (ver .chart-box más abajo), porque eso lo pidió el usuario expresamente
+   para todos los temas, no solo los oscuros redondeados. */
 [data-theme="papel"] .kpi-card, [data-theme="telemetria"] .kpi-card,
 [data-theme="papel"] .td-card, [data-theme="telemetria"] .td-card{box-shadow:none}
+
+/* ── Relieve 3D en las tarjetas de gráficas ──────────────────
+   Sombra elevada siempre visible (para que también se note en celular,
+   donde no hay :hover) más una leve inclinación en perspectiva al pasar
+   el mouse en escritorio. Es un efecto puramente visual sobre el
+   CONTENEDOR -- no toca cómo se dibujan los datos adentro, así que no
+   distorsiona ninguna barra ni porción como sí lo haría un gráfico
+   pseudo-3D isométrico. */
+.chart-box{
+  box-shadow:0 14px 28px -10px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.25);
+  transition:transform .25s ease, box-shadow .25s ease;
+  transform-style:preserve-3d;
+  will-change:transform;
+}
+@media(hover:hover){
+  .chart-box:hover{
+    transform:perspective(900px) rotateX(1.6deg) rotateY(-1.6deg) translateY(-3px);
+    box-shadow:0 26px 46px -12px rgba(0,0,0,.55), 0 4px 10px rgba(0,0,0,.3);
+  }
+}
 
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);font-size:12px;line-height:1.5;overflow-x:hidden}
@@ -1665,6 +1687,29 @@ function hm(t, lg) { return filtered(lg).filter(m=>m.HomeTeam===t); }
 function am(t, lg) { return filtered(lg).filter(m=>m.AwayTeam===t); }
 function tm(t, lg) { return filtered(lg).filter(m=>m.HomeTeam===t||m.AwayTeam===t); }
 
+// ── Gráficas nítidas ("4K") + relieve 3D ────────────────────
+// devicePixelRatio alto para que no se vean borrosas en pantallas de
+// celular de alta densidad. El plugin de sombra da sensación de
+// profundidad a barras, líneas y porciones de pastel sin tocar cómo se
+// calculan ni dibujan los valores -- así no se distorsiona ninguna
+// proporción, a diferencia de un gráfico 3D isométrico de verdad (esos
+// sí exageran o achican visualmente el tamaño real de cada dato).
+Chart.defaults.devicePixelRatio = Math.max(window.devicePixelRatio || 1, 2.5);
+Chart.register({
+  id: 'depth3d',
+  beforeDatasetsDraw(chart) {
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,.35)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 5;
+  },
+  afterDatasetsDraw(chart) {
+    chart.ctx.restore();
+  }
+});
+
 function killCharts(...ids) {
   (ids.length ? ids : Object.keys(CHARTS)).forEach(id => { if(CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } });
 }
@@ -1681,7 +1726,14 @@ function makeChart(id, type, data, opts) {
   }});
 }
 
-const gc = { bg: '#101f18', grid: 'rgba(255,255,255,0.04)', text: '#7a9686' };
+// Colores de ejes/rejilla para Chart.js -- getters en vez de valores
+// fijos para que cada gráfica tome el color del tema activo en el
+// momento en que se crea (no el que estaba puesto cuando cargó la app).
+const gc = {
+  get bg()   { return getComputedStyle(document.documentElement).getPropertyValue('--surface').trim(); },
+  get grid() { return getComputedStyle(document.documentElement).getPropertyValue('--border').trim(); },
+  get text() { return getComputedStyle(document.documentElement).getPropertyValue('--muted2').trim(); }
+};
 function axisStyle() { return { ticks:{color:gc.text,font:{size:10},maxRotation:40}, grid:{color:gc.grid}, border:{color:'transparent'} }; }
 function yAxisStyle(extra) { return { ticks:{color:gc.text,font:{size:10}}, grid:{color:gc.grid}, border:{color:'transparent'}, ...extra }; }
 
