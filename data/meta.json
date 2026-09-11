@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-10T10:12:01.080Z",
+  "generatedAt": "2026-09-11T10:09:14.458Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 6957,
+  "totalMatches": 6975,
   "leagues": [
     {
       "code": "E0",
@@ -16,14 +16,14 @@
     {
       "code": "E1",
       "name": "Championship",
-      "matches": 612,
+      "matches": 621,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E2",
       "name": "League One",
-      "matches": 611,
+      "matches": 612,
       "seasonsFound": 2,
       "error": null
     },
@@ -79,7 +79,7 @@
     {
       "code": "N1",
       "name": "Eredivisie",
-      "matches": 347,
+      "matches": 350,
       "seasonsFound": 2,
       "error": null
     },
@@ -93,14 +93,14 @@
     {
       "code": "SC0",
       "name": "Scottish Premiership",
-      "matches": 259,
+      "matches": 261,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "P1",
       "name": "Primeira Liga",
-      "matches": 348,
+      "matches": 350,
       "seasonsFound": 2,
       "error": null
     },
@@ -114,7 +114,7 @@
     {
       "code": "G1",
       "name": "Super League Grecia",
-      "matches": 256,
+      "matches": 257,
       "seasonsFound": 2,
       "error": null
     },
