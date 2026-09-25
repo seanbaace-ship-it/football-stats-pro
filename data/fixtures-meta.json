@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-25T05:09:35.675Z",
-  "sourceLastModified": "Fri, 18 Sep 2026 13:00:34 GMT",
-  "totalFixtures": 198,
+  "generatedAt": "2026-09-25T10:45:15.833Z",
+  "sourceLastModified": "Fri, 25 Sep 2026 07:44:18 GMT",
+  "totalFixtures": 8982,
   "leagues": [
     "2. Bundesliga",
     "Bundesliga",
@@ -23,6 +23,7 @@
     "Segunda División",
     "Serie A",
     "Serie B",
+    "Sin liga",
     "Super League Grecia",
     "Süper Lig"
   ]
