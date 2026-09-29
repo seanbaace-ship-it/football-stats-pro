@@ -1,30 +1,8 @@
 {
-  "generatedAt": "2026-09-29T08:48:37.447Z",
-  "sourceLastModified": "Fri, 25 Sep 2026 07:44:18 GMT",
-  "totalFixtures": 8982,
+  "generatedAt": "2026-09-29T11:44:49.177Z",
+  "sourceLastModified": "Tue, 29 Sep 2026 09:09:26 GMT",
+  "totalFixtures": 12,
   "leagues": [
-    "2. Bundesliga",
-    "Bundesliga",
-    "Championship",
-    "Eredivisie",
-    "La Liga",
-    "League One",
-    "League Two",
-    "Ligue 1",
-    "Ligue 2",
-    "National League",
-    "Premier League",
-    "Primeira Liga",
-    "Pro League Bélgica",
-    "Scottish Championship",
-    "Scottish League One",
-    "Scottish League Two",
-    "Scottish Premiership",
-    "Segunda División",
-    "Serie A",
-    "Serie B",
-    "Sin liga",
-    "Super League Grecia",
-    "Süper Lig"
+    "National League"
   ]
 }
