@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-09-30T11:31:17.193Z",
+  "generatedAt": "2026-10-01T11:59:36.647Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 7346,
+  "totalMatches": 7358,
   "leagues": [
     {
       "code": "E0",
@@ -121,7 +121,7 @@
     {
       "code": "EC",
       "name": "National League",
-      "matches": 672,
+      "matches": 684,
       "seasonsFound": 2,
       "error": null
     }
