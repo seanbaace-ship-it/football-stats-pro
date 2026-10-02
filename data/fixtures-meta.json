@@ -1,8 +1,14 @@
 {
-  "generatedAt": "2026-10-02T05:56:40.301Z",
-  "sourceLastModified": "Tue, 29 Sep 2026 09:09:26 GMT",
-  "totalFixtures": 12,
+  "generatedAt": "2026-10-02T11:31:18.368Z",
+  "sourceLastModified": "Fri, 02 Oct 2026 08:57:47 GMT",
+  "totalFixtures": 46,
   "leagues": [
-    "National League"
+    "League One",
+    "League Two",
+    "National League",
+    "Scottish Championship",
+    "Scottish League One",
+    "Scottish League Two",
+    "Segunda División"
   ]
 }
