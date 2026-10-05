@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-04T11:28:07.215Z",
+  "generatedAt": "2026-10-05T12:55:35.223Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 7358,
+  "totalMatches": 7380,
   "leagues": [
     {
       "code": "E0",
@@ -23,14 +23,14 @@
     {
       "code": "E2",
       "name": "League One",
-      "matches": 639,
+      "matches": 642,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E3",
       "name": "League Two",
-      "matches": 646,
+      "matches": 654,
       "seasonsFound": 2,
       "error": null
     },
@@ -121,7 +121,7 @@
     {
       "code": "EC",
       "name": "National League",
-      "matches": 684,
+      "matches": 695,
       "seasonsFound": 2,
       "error": null
     }
