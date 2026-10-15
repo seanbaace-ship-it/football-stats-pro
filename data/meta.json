@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-14T10:47:54.603Z",
+  "generatedAt": "2026-10-15T10:30:37.511Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 7542,
+  "totalMatches": 7554,
   "leagues": [
     {
       "code": "E0",
@@ -16,7 +16,7 @@
     {
       "code": "E1",
       "name": "Championship",
-      "matches": 659,
+      "matches": 671,
       "seasonsFound": 2,
       "error": null
     },
