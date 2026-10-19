@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-18T10:03:07.771Z",
+  "generatedAt": "2026-10-19T11:31:06.513Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 7554,
+  "totalMatches": 7491,
   "leagues": [
     {
       "code": "E0",
@@ -51,8 +51,8 @@
     {
       "code": "D2",
       "name": "2. Bundesliga",
-      "matches": 369,
-      "seasonsFound": 2,
+      "matches": 306,
+      "seasonsFound": 1,
       "error": null
     },
     {
