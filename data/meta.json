@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-21T10:46:38.076Z",
+  "generatedAt": "2026-10-22T10:47:44.645Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 7687,
+  "totalMatches": 7713,
   "leagues": [
     {
       "code": "E0",
@@ -16,28 +16,28 @@
     {
       "code": "E1",
       "name": "Championship",
-      "matches": 683,
+      "matches": 684,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E2",
       "name": "League One",
-      "matches": 666,
+      "matches": 678,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E3",
       "name": "League Two",
-      "matches": 678,
+      "matches": 690,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "SP1",
       "name": "La Liga",
-      "matches": 468,
+      "matches": 469,
       "seasonsFound": 2,
       "error": null
     },
