@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-10-29T11:55:19.564Z",
+  "generatedAt": "2026-10-30T11:49:10.503Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 7905,
+  "totalMatches": 7907,
   "leagues": [
     {
       "code": "E0",
@@ -58,7 +58,7 @@
     {
       "code": "I1",
       "name": "Serie A",
-      "matches": 468,
+      "matches": 470,
       "seasonsFound": 2,
       "error": null
     },
