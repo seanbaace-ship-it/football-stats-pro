@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-04T13:26:14.595Z",
+  "generatedAt": "2026-11-05T13:40:01.648Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 8067,
+  "totalMatches": 8084,
   "leagues": [
     {
       "code": "E0",
@@ -16,21 +16,21 @@
     {
       "code": "E1",
       "name": "Championship",
-      "matches": 708,
+      "matches": 720,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E2",
       "name": "League One",
-      "matches": 707,
+      "matches": 710,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E3",
       "name": "League Two",
-      "matches": 715,
+      "matches": 716,
       "seasonsFound": 2,
       "error": null
     },
@@ -86,7 +86,7 @@
     {
       "code": "B1",
       "name": "Pro League Bélgica",
-      "matches": 400,
+      "matches": 401,
       "seasonsFound": 2,
       "error": null
     },
