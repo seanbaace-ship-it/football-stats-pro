@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-11-07T12:02:06.455Z",
+  "generatedAt": "2026-11-08T12:23:04.155Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 8084,
+  "totalMatches": 7994,
   "leagues": [
     {
       "code": "E0",
       "name": "Premier League",
-      "matches": 470,
-      "seasonsFound": 2,
+      "matches": 380,
+      "seasonsFound": 1,
       "error": null
     },
     {
