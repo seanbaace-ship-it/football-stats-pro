@@ -1,99 +1,99 @@
 {
-  "generatedAt": "2026-11-22T13:43:51.260Z",
+  "generatedAt": "2026-11-23T16:45:06.842Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 8236,
+  "totalMatches": 8383,
   "leagues": [
     {
       "code": "E0",
       "name": "Premier League",
-      "matches": 480,
+      "matches": 489,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E1",
       "name": "Championship",
-      "matches": 732,
+      "matches": 744,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E2",
       "name": "League One",
-      "matches": 715,
+      "matches": 727,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E3",
       "name": "League Two",
-      "matches": 726,
+      "matches": 738,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "SP1",
       "name": "La Liga",
-      "matches": 499,
+      "matches": 508,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "D1",
       "name": "Bundesliga",
-      "matches": 387,
+      "matches": 396,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "D2",
       "name": "2. Bundesliga",
-      "matches": 405,
+      "matches": 414,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "I1",
       "name": "Serie A",
-      "matches": 490,
+      "matches": 499,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "F1",
       "name": "Ligue 1",
-      "matches": 396,
+      "matches": 405,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "F2",
       "name": "Ligue 2",
-      "matches": 413,
+      "matches": 420,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "N1",
       "name": "Eredivisie",
-      "matches": 414,
+      "matches": 423,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "B1",
       "name": "Pro League Bélgica",
-      "matches": 410,
+      "matches": 419,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "SC0",
       "name": "Scottish Premiership",
-      "matches": 303,
+      "matches": 309,
       "seasonsFound": 2,
       "error": null
     },
@@ -107,21 +107,21 @@
     {
       "code": "T1",
       "name": "Süper Lig",
-      "matches": 405,
+      "matches": 413,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "G1",
       "name": "Super League Grecia",
-      "matches": 305,
+      "matches": 311,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "EC",
       "name": "National League",
-      "matches": 752,
+      "matches": 764,
       "seasonsFound": 2,
       "error": null
     }
