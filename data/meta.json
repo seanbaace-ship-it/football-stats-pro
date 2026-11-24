@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-11-23T16:45:06.842Z",
+  "generatedAt": "2026-11-24T16:40:05.900Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 8383,
+  "totalMatches": 8390,
   "leagues": [
     {
       "code": "E0",
       "name": "Premier League",
-      "matches": 489,
+      "matches": 490,
       "seasonsFound": 2,
       "error": null
     },
@@ -37,7 +37,7 @@
     {
       "code": "SP1",
       "name": "La Liga",
-      "matches": 508,
+      "matches": 509,
       "seasonsFound": 2,
       "error": null
     },
@@ -58,7 +58,7 @@
     {
       "code": "I1",
       "name": "Serie A",
-      "matches": 499,
+      "matches": 500,
       "seasonsFound": 2,
       "error": null
     },
@@ -72,7 +72,7 @@
     {
       "code": "F2",
       "name": "Ligue 2",
-      "matches": 420,
+      "matches": 422,
       "seasonsFound": 2,
       "error": null
     },
@@ -107,14 +107,14 @@
     {
       "code": "T1",
       "name": "Süper Lig",
-      "matches": 413,
+      "matches": 414,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "G1",
       "name": "Super League Grecia",
-      "matches": 311,
+      "matches": 312,
       "seasonsFound": 2,
       "error": null
     },
