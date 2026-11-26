@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-11-25T16:23:05.404Z",
+  "generatedAt": "2026-11-26T15:57:35.302Z",
   "seasons": [
     "2627",
     "2526"
   ],
-  "totalMatches": 8390,
+  "totalMatches": 8422,
   "leagues": [
     {
       "code": "E0",
@@ -16,21 +16,21 @@
     {
       "code": "E1",
       "name": "Championship",
-      "matches": 744,
+      "matches": 756,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E2",
       "name": "League One",
-      "matches": 727,
+      "matches": 731,
       "seasonsFound": 2,
       "error": null
     },
     {
       "code": "E3",
       "name": "League Two",
-      "matches": 738,
+      "matches": 740,
       "seasonsFound": 2,
       "error": null
     },
@@ -93,7 +93,7 @@
     {
       "code": "SC0",
       "name": "Scottish Premiership",
-      "matches": 309,
+      "matches": 311,
       "seasonsFound": 2,
       "error": null
     },
@@ -121,7 +121,7 @@
     {
       "code": "EC",
       "name": "National League",
-      "matches": 764,
+      "matches": 776,
       "seasonsFound": 2,
       "error": null
     }
